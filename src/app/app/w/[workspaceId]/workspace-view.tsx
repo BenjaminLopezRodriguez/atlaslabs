@@ -18,12 +18,13 @@ export function WorkspaceView({ workspaceId }: { workspaceId: string }) {
   }
 
   return (
-    <div className="bg-background text-foreground min-h-svh">
+    <div className="text-foreground">
       <header className="border-border flex items-center justify-between border-b px-4 py-3">
         <div className="flex items-center gap-3">
+          {/* Sidebar covers this at md+; keep an escape hatch while it's hidden. */}
           <Link
             href="/app"
-            className="text-muted-foreground hover:text-foreground text-[13px]"
+            className="text-muted-foreground hover:text-foreground text-[13px] md:hidden"
           >
             ← Workspaces
           </Link>

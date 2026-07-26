@@ -1,46 +1,18 @@
-import Link from "next/link";
+import { PromptBox } from "@/components/atlas/prompt-box";
 
-import { api } from "@/trpc/server";
-
-export default async function AppHome() {
-  const { personal, groupWorkspaces } = await api.workspace.list();
-
+/**
+ * Signed-in home. Workspace navigation lives in the shell sidebar, so this
+ * pane is the composer itself — same entry point as the marketing hero.
+ */
+export default function AppHome() {
   return (
-    <div className="bg-background text-foreground min-h-svh">
-      <header className="border-border flex items-center justify-between border-b px-4 py-3">
-        <h1 className="text-sm font-medium tracking-tight">Atlas</h1>
-        <Link
-          href="/"
-          className="text-muted-foreground hover:text-foreground text-[13px]"
-        >
-          New specialist
-        </Link>
-      </header>
-      <main className="mx-auto max-w-2xl px-4 py-8">
-        <h2 className="text-muted-foreground text-[13px] font-medium">
-          Workspaces
-        </h2>
-        <ul className="mt-2 space-y-1.5">
-          <li>
-            <Link
-              href={`/app/w/${personal.id}`}
-              className="border-border hover:border-foreground/25 block rounded-md border px-3 py-2 text-sm transition-colors"
-            >
-              Personal
-            </Link>
-          </li>
-          {groupWorkspaces.map((ws) => (
-            <li key={ws.id}>
-              <Link
-                href={`/app/w/${ws.id}`}
-                className="border-border hover:border-foreground/25 block rounded-md border px-3 py-2 text-sm transition-colors"
-              >
-                {ws.group?.name ?? ws.name}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </main>
+    <div className="mx-auto flex min-h-full w-full max-w-2xl flex-col justify-center px-6 py-10">
+      <h1 className="text-foreground text-center text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
+        What should your Atlas become an expert in?
+      </h1>
+      <div className="mt-6 w-full">
+        <PromptBox />
+      </div>
     </div>
   );
 }

@@ -1,10 +1,10 @@
 "use client";
 
+import { Send } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 
 const EXAMPLES = [
   "Learn our architecture and review every pull request.",
@@ -14,14 +14,14 @@ const EXAMPLES = [
 ];
 
 /**
- * The homepage prompt box. Submitting routes to /new?prompt=… — a protected
- * path — so the prompt survives the AuthKit sign-in round-trip via the
- * return path (spec §6 first-run flow, step 2).
+ * The prompt composer, shared by the marketing hero and the signed-in app.
+ * Submitting routes to /new?prompt=… — a protected path — so the prompt
+ * survives the AuthKit sign-in round-trip via the return path (spec §6
+ * first-run flow, step 2).
  */
 export function PromptBox() {
   const router = useRouter();
   const [prompt, setPrompt] = useState("");
-  const placeholder = EXAMPLES[0];
 
   function submit() {
     const p = prompt.trim();
@@ -34,8 +34,15 @@ export function PromptBox() {
       <label htmlFor="atlas-prompt" className="sr-only">
         What should your Atlas become an expert in?
       </label>
-      <div className="border-border bg-card focus-within:ring-ring/40 rounded-lg border p-2 shadow-xs focus-within:ring-2">
-        <Textarea
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          submit();
+        }}
+        className="border-border bg-card focus-within:border-ring focus-within:ring-ring/30 flex w-full flex-col rounded-3xl border shadow-sm focus-within:ring-3"
+      >
+        <textarea
           id="atlas-prompt"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
@@ -45,30 +52,33 @@ export function PromptBox() {
               submit();
             }
           }}
-          placeholder={placeholder}
-          rows={3}
-          className="resize-none border-0 bg-transparent shadow-none focus-visible:ring-0"
+          placeholder={EXAMPLES[0]}
+          rows={2}
+          className="placeholder:text-muted-foreground min-h-16 w-full resize-none bg-transparent px-4 pt-4 pb-2 text-base outline-none md:text-sm"
         />
-        <div className="flex items-center justify-between gap-2 px-1 pt-1">
+
+        <div className="flex items-center justify-between gap-2 px-3 pb-2">
           <p className="text-muted-foreground hidden text-[12px] sm:block">
             Enter to start · Shift+Enter for a new line
           </p>
           <Button
-            onClick={submit}
+            type="submit"
             disabled={!prompt.trim()}
-            className="h-8 rounded-md px-3.5 text-[13px] font-medium"
+            aria-label="Start building"
+            className="size-8 shrink-0 rounded-full p-0"
           >
-            Start building
+            <Send className="size-3.5" aria-hidden="true" />
           </Button>
         </div>
-      </div>
-      <ul className="mt-3 flex flex-wrap gap-1.5">
+      </form>
+
+      <ul className="divide-border mt-2 flex w-full flex-col divide-y">
         {EXAMPLES.slice(1).map((ex) => (
           <li key={ex}>
             <button
               type="button"
               onClick={() => setPrompt(ex)}
-              className="border-border text-muted-foreground hover:text-foreground hover:border-foreground/25 rounded-full border px-2.5 py-1 text-[12px] transition-colors"
+              className="text-muted-foreground hover:text-foreground w-full py-2.5 text-left text-sm transition-colors"
             >
               {ex}
             </button>
