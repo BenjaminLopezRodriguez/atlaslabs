@@ -47,3 +47,6 @@ yarn-error.log*
 # workspace packages
 packages/*/node_modules/
 packages/*/dist/
+
+# claude code
+.claude
