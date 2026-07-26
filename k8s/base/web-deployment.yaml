@@ -1,0 +1,55 @@
+# Stateless control plane (web + tRPC + /v1 API gateway).
+# DATABASE_URL etc. come from the `atlas-env` secret, which a cloud secret
+# manager (External Secrets, CSI driver) materializes — never commit values.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: atlas-web
+  namespace: atlas
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: atlas-web
+  template:
+    metadata:
+      labels:
+        app: atlas-web
+    spec:
+      containers:
+        - name: web
+          image: atlas-web:latest # replace with your registry image
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - secretRef:
+                name: atlas-env
+          readinessProbe:
+            httpGet:
+              path: /api/ready
+              port: 3000
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: atlas-web
+  namespace: atlas
+spec:
+  selector:
+    app: atlas-web
+  ports:
+    - port: 80
+      targetPort: 3000

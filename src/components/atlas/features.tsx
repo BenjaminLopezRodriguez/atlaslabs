@@ -34,17 +34,17 @@ export function Features() {
     <section
       id="product"
       aria-labelledby="product-h"
-      className="mm-section scroll-mt-14 border-t border-border"
+      className="mm-section border-border scroll-mt-14 border-t"
     >
       <div className="mm-shell">
         <div className="max-w-2xl">
-          <p className="text-[13px] font-medium tracking-tight text-signal">
+          <p className="text-signal text-[13px] font-medium tracking-tight">
             Marketplace
           </p>
-          <h2 id="product-h" className="mm-title mt-3 text-foreground">
+          <h2 id="product-h" className="mm-title text-foreground mt-3">
             One marketplace. Two sides of the same coin.
           </h2>
-          <p className="mt-4 max-w-xl text-base leading-relaxed text-muted-foreground">
+          <p className="text-muted-foreground mt-4 max-w-xl text-base leading-relaxed">
             Atlas connects buyers and builders of high-quality data and
             specialist agents — so teams can find what they need, and creators
             can ship what they know.

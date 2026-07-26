@@ -5,7 +5,12 @@
  * @see https://gradients.venki.dev/
  */
 
-export const OPENAI_PALETTE = ["#5135FF", "#FF5828", "#F69CFF", "#FFA50F"] as const;
+export const OPENAI_PALETTE = [
+  "#5135FF",
+  "#FF5828",
+  "#F69CFF",
+  "#FFA50F",
+] as const;
 
 export interface EllipseConfig {
   color: string;

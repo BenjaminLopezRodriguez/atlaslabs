@@ -104,33 +104,33 @@ export function HowItWorks() {
     <section
       id="how-it-works"
       aria-labelledby="how-h"
-      className="mm-section scroll-mt-14 border-t border-border"
+      className="mm-section border-border scroll-mt-14 border-t"
     >
       <div className="mm-shell">
         <div className="max-w-2xl">
-          <p className="text-[13px] font-medium tracking-tight text-signal">
+          <p className="text-signal text-[13px] font-medium tracking-tight">
             How it works
           </p>
-          <h2 id="how-h" className="mm-title mt-3 text-foreground">
+          <h2 id="how-h" className="mm-title text-foreground mt-3">
             From listing to workflow.
           </h2>
         </div>
 
         {/* Divided feature rows — minimachines cue */}
-        <div className="mt-14 divide-y divide-border border-y border-border">
+        <div className="divide-border border-border mt-14 divide-y border-y">
           {steps.map((step) => (
             <article
               key={step.index}
               className="grid gap-3 py-8 sm:grid-cols-[5rem_1fr] sm:gap-8"
             >
-              <span className="font-mono text-[12px] tracking-tight text-muted-foreground">
+              <span className="text-muted-foreground font-mono text-[12px] tracking-tight">
                 {step.index}
               </span>
               <div>
-                <h3 className="text-[15px] font-medium tracking-tight text-foreground">
+                <h3 className="text-foreground text-[15px] font-medium tracking-tight">
                   {step.title}
                 </h3>
-                <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
+                <p className="text-muted-foreground mt-2 max-w-md text-sm leading-relaxed">
                   {step.body}
                 </p>
               </div>
@@ -138,13 +138,13 @@ export function HowItWorks() {
           ))}
         </div>
 
-        <div className="mt-14 overflow-hidden rounded-lg border border-border bg-card">
-          <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <div className="border-border bg-card mt-14 overflow-hidden rounded-lg border">
+          <div className="border-border flex items-center justify-between border-b px-4 py-3">
             <div className="flex items-center gap-2">
-              <span className="size-1.5 rounded-full bg-foreground/25" />
-              <span className="size-1.5 rounded-full bg-foreground/25" />
-              <span className="size-1.5 rounded-full bg-foreground/25" />
-              <span className="ml-1.5 font-mono text-[11px] text-muted-foreground">
+              <span className="bg-foreground/25 size-1.5 rounded-full" />
+              <span className="bg-foreground/25 size-1.5 rounded-full" />
+              <span className="bg-foreground/25 size-1.5 rounded-full" />
+              <span className="text-muted-foreground ml-1.5 font-mono text-[11px]">
                 listings
               </span>
             </div>
@@ -152,7 +152,7 @@ export function HowItWorks() {
             <div
               role="radiogroup"
               aria-label="Listing type"
-              className="flex items-center gap-0.5 rounded-md bg-muted p-0.5"
+              className="bg-muted flex items-center gap-0.5 rounded-md p-0.5"
             >
               {(
                 [
@@ -179,7 +179,7 @@ export function HowItWorks() {
             </div>
           </div>
 
-          <ul className="divide-y divide-border">
+          <ul className="divide-border divide-y">
             {listings.map((listing) => {
               const KindIcon = kindIcons[listing.kind];
               return (
@@ -188,14 +188,14 @@ export function HowItWorks() {
                   className="flex items-start justify-between gap-4 px-4 py-3.5"
                 >
                   <div>
-                    <p className="text-[13px] font-medium tracking-tight text-foreground">
+                    <p className="text-foreground text-[13px] font-medium tracking-tight">
                       {listing.label}
                     </p>
-                    <p className="mt-0.5 text-[12px] text-muted-foreground">
+                    <p className="text-muted-foreground mt-0.5 text-[12px]">
                       {listing.detail}
                     </p>
                   </div>
-                  <span className="inline-flex shrink-0 items-center gap-1.5 font-mono text-[11px] text-signal">
+                  <span className="text-signal inline-flex shrink-0 items-center gap-1.5 font-mono text-[11px]">
                     <KindIcon className="size-3" />
                     {listing.kindLabel}
                   </span>

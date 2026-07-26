@@ -3,6 +3,8 @@ import "@/styles/globals.css";
 import { type Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
+import { AuthKitProvider } from "@workos-inc/authkit-nextjs/components";
+
 import { TRPCReactProvider } from "@/trpc/react";
 import { cn } from "@/lib/utils";
 
@@ -39,7 +41,9 @@ export default function RootLayout({
       )}
     >
       <body>
-        <TRPCReactProvider>{children}</TRPCReactProvider>
+        <AuthKitProvider>
+          <TRPCReactProvider>{children}</TRPCReactProvider>
+        </AuthKitProvider>
       </body>
     </html>
   );

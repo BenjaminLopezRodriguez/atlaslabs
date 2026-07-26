@@ -85,8 +85,8 @@ export function MemoryConstellation({
   const nodes = mode === "personal" ? personalNodes : organizationNodes;
 
   return (
-    <div className="border-border overflow-hidden rounded-xl border bg-card shadow-sm">
-      <div className="flex items-center justify-between gap-4 border-b border-border px-4 py-3 sm:px-5">
+    <div className="border-border bg-card overflow-hidden rounded-xl border shadow-sm">
+      <div className="border-border flex items-center justify-between gap-4 border-b px-4 py-3 sm:px-5">
         <div className="flex items-center gap-3">
           <span className="text-muted-foreground font-mono text-xs tracking-tight">
             memory.scope
@@ -98,10 +98,7 @@ export function MemoryConstellation({
         </div>
 
         {onModeChange ? (
-          <Tabs
-            value={mode}
-            onValueChange={(v) => onModeChange(v as Mode)}
-          >
+          <Tabs value={mode} onValueChange={(v) => onModeChange(v as Mode)}>
             <TabsList
               variant="default"
               className="bg-muted h-8 rounded-lg p-0.5"
@@ -132,8 +129,8 @@ export function MemoryConstellation({
               className={cn(
                 "flex flex-col gap-3 p-5 transition-colors duration-300",
                 "hover:bg-muted/40",
-                i % 2 === 0 && "sm:border-r sm:border-border",
-                i < 2 && "border-b border-border",
+                i % 2 === 0 && "sm:border-border sm:border-r",
+                i < 2 && "border-border border-b",
               )}
             >
               <div className="flex items-center justify-between gap-2">

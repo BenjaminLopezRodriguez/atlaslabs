@@ -1,29 +1,71 @@
-# Create T3 App
+# Atlas Labs
 
-This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3-app`.
+Atlas lets people and teams turn private knowledge and working methods into
+collaborative specialist AI workspaces used through chat, a CLI, and scoped
+APIs. Full product spec: `Atlas-Labs-Product-Spec.md`.
 
-## What's next? How do I make an app with this?
+## Stack
 
-We try to keep this project as simple as possible, so you can start with just the scaffolding we set up for you, and add additional things later when they become necessary.
+Next.js App Router · TypeScript · Tailwind · tRPC · Drizzle · PostgreSQL ·
+WorkOS AuthKit · pnpm workspace (`packages/cli` = `@atlaslabs/cli`).
 
-If you are not familiar with the different technologies used in this project, please refer to the respective docs. If you still are in the wind, please join our [Discord](https://t3.gg/discord) and ask for help.
+## Clean start
 
-- [Next.js](https://nextjs.org)
-- [NextAuth.js](https://next-auth.js.org)
-- [Prisma](https://prisma.io)
-- [Drizzle](https://orm.drizzle.team)
-- [Tailwind CSS](https://tailwindcss.com)
-- [tRPC](https://trpc.io)
+```bash
+cp .env.example .env          # then fill in AUTH + WORKOS values
+docker compose up -d          # postgres :5442, redis :6389, minio :9010
+pnpm install
+pnpm db:migrate               # or db:push during development
+pnpm db:seed                  # acceptance-scenario seed (optional)
+pnpm dev                      # web app on :3000
+pnpm worker                   # run worker (separate terminal)
+```
 
-## Learn More
+WorkOS: create a **new** application at dashboard.workos.com (steps in
+`.env.example`). Without `ANTHROPIC_API_KEY`, specialist runs use a
+deterministic stub model.
 
-To learn more about the [T3 Stack](https://create.t3.gg/), take a look at the following resources:
+## Atlas CLI
 
-- [Documentation](https://create.t3.gg/)
-- [Learn the T3 Stack](https://create.t3.gg/en/faq#what-learning-resources-are-currently-available) — Check out these awesome tutorials
+```bash
+cd packages/cli && pnpm build && npm link   # or: pnpm dev -- <cmd>
+atlas login                                  # browser device flow
+atlas group create "Atlas Labs Engineering"
+atlas init                                   # writes atlas.yaml
+atlas source sync                            # dry-run manifest, secret-safe
+atlas specialist create "Review changes against our architecture"
+atlas specialist run <slug> "Review the login flow"
+atlas wait && atlas logs
+atlas specialist deploy <slug>
+atlas api-key create <slug>
+```
 
-You can check out the [create-t3-app GitHub repository](https://github.com/t3-oss/create-t3-app) — your feedback and contributions are welcome!
+## Specialist API (scoped service keys)
 
-## How do I deploy this?
+```text
+POST /v1/specialists/{id}/invoke   (202 → runId; idempotencyKey required)
+GET  /v1/runs/{id}
+GET  /v1/runs/{id}/events          (SSE with Accept: text/event-stream)
+GET  /v1/runs/{id}/artifacts
+POST /v1/runs/{id}/cancel
+```
 
-Follow our deployment guides for [Vercel](https://create.t3.gg/en/deployment/vercel), [Netlify](https://create.t3.gg/en/deployment/netlify) and [Docker](https://create.t3.gg/en/deployment/docker) for more information.
+Auth: `Authorization: Bearer atlas_sk_…` — hashed at rest, scoped, rate
+limited, revocable.
+
+## Validation
+
+```bash
+pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build
+```
+
+## Production
+
+- `Dockerfile` — multi-stage web image (`runner`) and run worker (`worker`).
+- `k8s/base` — kustomize manifests; external managed Postgres/objects,
+  secrets via cloud secret manager.
+- Health: `/api/health` (live), `/api/ready` (db).
+
+## Status
+
+See `docs/implementation-status.md` and `docs/reference-audit.md`.

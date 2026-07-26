@@ -8,5 +8,5 @@ export default {
   dbCredentials: {
     url: env.DATABASE_URL,
   },
-  tablesFilter: ["atlaslabs_*"],
+  tablesFilter: ["atlas_*"],
 } satisfies Config;

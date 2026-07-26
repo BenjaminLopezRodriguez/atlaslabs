@@ -44,3 +44,6 @@ yarn-error.log*
 
 # idea files
 .idea
+# workspace packages
+packages/*/node_modules/
+packages/*/dist/

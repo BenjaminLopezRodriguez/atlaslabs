@@ -22,7 +22,7 @@ export function ConceptMarquee() {
             {row.map((item, i) => (
               <span
                 key={`a-${item}-${i}`}
-                className="text-sm font-medium tracking-tight text-slate-400 whitespace-nowrap"
+                className="text-sm font-medium tracking-tight whitespace-nowrap text-slate-400"
               >
                 {item}
                 <span className="ml-8 text-slate-300" aria-hidden="true">
@@ -35,7 +35,7 @@ export function ConceptMarquee() {
             {row.map((item, i) => (
               <span
                 key={`b-${item}-${i}`}
-                className="text-sm font-medium tracking-tight text-slate-400 whitespace-nowrap"
+                className="text-sm font-medium tracking-tight whitespace-nowrap text-slate-400"
               >
                 {item}
                 <span className="ml-8 text-slate-300">·</span>

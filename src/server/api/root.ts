@@ -1,4 +1,10 @@
-import { postRouter } from "@/server/api/routers/post";
+import { cliRouter } from "@/server/api/routers/cli";
+import { correctionRouter } from "@/server/api/routers/correction";
+import { groupRouter } from "@/server/api/routers/group";
+import { runRouter } from "@/server/api/routers/run";
+import { specialistRouter } from "@/server/api/routers/specialist";
+import { threadRouter } from "@/server/api/routers/thread";
+import { workspaceRouter } from "@/server/api/routers/workspace";
 import { createCallerFactory, createTRPCRouter } from "@/server/api/trpc";
 
 /**
@@ -7,7 +13,13 @@ import { createCallerFactory, createTRPCRouter } from "@/server/api/trpc";
  * All routers added in /api/routers should be manually added here.
  */
 export const appRouter = createTRPCRouter({
-  post: postRouter,
+  cli: cliRouter,
+  correction: correctionRouter,
+  group: groupRouter,
+  run: runRouter,
+  specialist: specialistRouter,
+  thread: threadRouter,
+  workspace: workspaceRouter,
 });
 
 // export type definition of API

@@ -1,0 +1,26 @@
+{
+  "name": "@atlaslabs/cli",
+  "version": "0.1.0",
+  "description": "Atlas CLI — connect local work to Atlas specialist workspaces",
+  "type": "module",
+  "bin": {
+    "atlas": "dist/cli.js"
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node -e \"require('fs').chmodSync('dist/cli.js',0o755)\"",
+    "dev": "tsx src/cli.ts",
+    "test": "tsx --test src/cli.test.ts"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "yaml": "^2.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

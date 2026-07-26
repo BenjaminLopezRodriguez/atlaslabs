@@ -1,0 +1,18 @@
+# One-shot migration Job — run before rolling out a new web/worker image.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: atlas-migrate
+  namespace: atlas
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: atlas-worker:latest
+          command: ["pnpm", "db:migrate"]
+          envFrom:
+            - secretRef:
+                name: atlas-env

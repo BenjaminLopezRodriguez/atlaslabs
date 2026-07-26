@@ -1,0 +1,30 @@
+# Run workers — claim queued runs from Postgres (FOR UPDATE SKIP LOCKED).
+# Scale replicas freely; specialist identity is never bound to pod identity.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: atlas-worker
+  namespace: atlas
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: atlas-worker
+  template:
+    metadata:
+      labels:
+        app: atlas-worker
+    spec:
+      containers:
+        - name: worker
+          image: atlas-worker:latest # Dockerfile target: worker
+          envFrom:
+            - secretRef:
+                name: atlas-env
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
