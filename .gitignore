@@ -50,3 +50,5 @@ packages/*/dist/
 
 # claude code
 .claude
+.env*
+!.env.example
