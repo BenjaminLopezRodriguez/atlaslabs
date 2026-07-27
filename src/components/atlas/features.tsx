@@ -4,28 +4,28 @@ import { GradientCard } from "./gradient-card";
 const features = [
   {
     id: "for-data",
-    title: "Data marketplace",
+    title: "Spaces that stay up",
     description:
-      "Discover, license, and deliver datasets with clear provenance, pricing, and usage terms — from niche corpora to production-ready feeds.",
+      "Every project gets a cloud machine with a persistent filesystem and shell. Close the tab, come back tomorrow, and your work is exactly where you left it.",
     span: "md:col-span-2 md:min-h-[260px]",
   },
   {
     id: "for-agents",
-    title: "Specialist agents",
+    title: "Agents edit real files",
     description:
-      "Hire agents trained for a job — legal review, sales research, support triage, and more — not generic chat.",
+      "Prompt from the chat and the agent writes to the space itself — not a sandbox copy you have to reconcile later.",
     span: "md:col-span-1 md:min-h-[260px]",
   },
   {
-    title: "Publish and earn",
+    title: "Browser or terminal",
     description:
-      "List your datasets and agents. Set terms, track usage, and get paid when buyers put your work to use.",
+      "Drive a space from the web app or the Atlas CLI. Same machine, same files, whichever one you have open.",
     span: "md:col-span-1 md:min-h-[220px]",
   },
   {
-    title: "Compose into workflows",
+    title: "Ship from the same box",
     description:
-      "Connect data and agents through APIs and tools you already use. Swap specialists without rebuilding your stack.",
+      "Run the dev server, expose a port, and share a public URL. What the agent built is live without a deploy step in between.",
     span: "md:col-span-2 md:min-h-[220px]",
   },
 ];

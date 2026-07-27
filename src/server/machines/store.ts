@@ -11,6 +11,9 @@ import {
   type MachineStatus,
 } from "@/server/db/schema";
 
+import { revokeDeployTokens } from "@/server/deploy/tokens";
+import { SCAFFOLD_FILES } from "@/server/spaces/scaffold";
+
 import { reachableMachine, reachableMachineBySlug, type Machine } from "./authz";
 import { type ExecInput, type ExecResult } from "./driver";
 import { defaultDriverKind, getDriver } from "./registry";
@@ -103,7 +106,29 @@ export async function createMachine(
     })
     .returning();
 
+  await writeScaffold(created!);
+
   return created!;
+}
+
+/**
+ * Drop the deploy scaffold into a fresh space.
+ *
+ * Best-effort: the machine exists and is billable by now, so a driver hiccup
+ * writing four small files must not fail creation and strand it. The files are
+ * re-writable later from the deploy path.
+ */
+async function writeScaffold(machine: Machine): Promise<void> {
+  try {
+    for (const [path, body] of Object.entries(SCAFFOLD_FILES)) {
+      await putMachineFile(machine, path, new TextEncoder().encode(body));
+    }
+  } catch (err) {
+    console.warn(
+      `[machines] scaffold write failed for ${machine.slug}:`,
+      err instanceof Error ? err.message : err,
+    );
+  }
 }
 
 export async function listMachines(
@@ -174,6 +199,8 @@ async function setStatus(
 
 export async function stopMachine(machine: Machine, db: Db = database) {
   await getDriver(machine.driver).stop(machine.handle!);
+  // The deployment outlives the space on Railway; its credential must not.
+  await revokeDeployTokens(machine.id, db);
   return setStatus(
     machine,
     "stopped",

@@ -1,0 +1,1 @@
+ALTER TABLE "atlas_thread" ADD COLUMN "contextPack" jsonb;

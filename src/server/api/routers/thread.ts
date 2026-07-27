@@ -8,7 +8,7 @@ import type { db } from "@/server/db";
 import { messages, threads } from "@/server/db/schema";
 import { getMachine, listMachines } from "@/server/machines/store";
 import { startRun } from "@/server/runs";
-import { runSpaceAgent } from "@/server/spaces/agent";
+import { enqueueSpaceTurn } from "@/server/spaces/turns";
 
 async function requireThread(
   ctx: { db: typeof db; user: { id: string } },
@@ -22,6 +22,8 @@ async function requireThread(
   await requireWorkspaceAccess(ctx.db, ctx.user.id, thread.workspaceId, min);
   return thread;
 }
+
+/** Total pinned bytes. Past this the mention is a pointer, not an attachment. */
 
 export const threadRouter = createTRPCRouter({
   list: protectedProcedure
@@ -138,6 +140,10 @@ export const threadRouter = createTRPCRouter({
       z.object({
         threadId: z.string(),
         content: z.string().min(1).max(50_000),
+        /** Files the user @-mentioned; their contents are pinned into the prompt. */
+        paths: z.array(z.string().max(1024)).max(10).optional(),
+        /** Force a build stage. Omitted, it is derived from the thread's context pack. */
+        runKind: z.enum(["oneshot", "understand", "modify"]).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -179,43 +185,50 @@ export const threadRouter = createTRPCRouter({
           });
         }
 
-        const prior = await ctx.db.query.messages.findMany({
-          where: eq(messages.threadId, thread.id),
-          orderBy: asc(messages.seq),
-        });
-
-        let reply: string;
-        try {
-          const result = await runSpaceAgent({
-            machine,
-            prompt: input.content,
-            // Everything before the message just posted.
-            history: prior
-              .filter((m) => m.id !== row!.id && m.role !== "system")
-              .map((m) => ({
-                role: m.role === "assistant" ? "assistant" : "user",
-                content: m.content,
-              })),
-            userId: ctx.user.id,
-          });
-          reply = result.text;
-        } catch (err) {
-          // The agent failing is a message in the thread, not a lost turn.
-          reply = `I could not finish that: ${
-            err instanceof Error ? err.message : String(err)
-          }`;
-        }
-
-        const [assistant] = await ctx.db
+        /*
+         * The reply row is created empty and the work is queued, not run here.
+         * A space turn drives a real VM for minutes; holding the request open
+         * for that loses the turn on any refresh and times out behind a proxy.
+         * The worker fills this row in, and the thread is already polling it.
+         */
+        const [pending] = await ctx.db
           .insert(messages)
           .values({
             threadId: thread.id,
             seq: sql`(select coalesce(max(seq), 0) + 1 from ${messages} where ${messages.threadId} = ${thread.id})`,
             role: "assistant",
-            content: reply,
+            content: "",
+            meta: { running: true, progress: [] },
           })
           .returning();
-        return { message: row, runId: null, reply: assistant };
+
+        try {
+          await enqueueSpaceTurn(
+            {
+              threadId: thread.id,
+              messageId: pending!.id,
+              machineId: thread.machineId,
+              userId: ctx.user.id,
+              userAsk: input.content,
+              paths: input.paths ?? [],
+              runKind: input.runKind,
+            },
+            ctx.db,
+          );
+        } catch (err) {
+          // The live-turn index rejects a second turn while one is in flight.
+          // Drop the orphaned reply row so the thread does not keep a bubble
+          // that nothing will ever fill.
+          await ctx.db.delete(messages).where(eq(messages.id, pending!.id));
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "This space is still working on the previous message. Wait for it to finish.",
+            cause: err,
+          });
+        }
+
+        return { message: row, runId: null, reply: pending };
       }
 
       let runId: string | null = null;

@@ -14,6 +14,14 @@ export const env = createEnv({
     WORKOS_API_KEY: z.string().startsWith("sk_"),
     WORKOS_CLIENT_ID: z.string().startsWith("client_"),
     WORKOS_COOKIE_PASSWORD: z.string().min(32),
+    /*
+     * Connections (GitHub, Railway). Optional so a deployment without them
+     * still builds and runs — the features that need them fail loudly at the
+     * point of use instead of blocking the whole app at boot.
+     */
+    ATLAS_ENCRYPTION_KEY: z.string().min(32).optional(),
+    GITHUB_CLIENT_ID: z.string().optional(),
+    GITHUB_CLIENT_SECRET: z.string().optional(),
   },
 
   /**
@@ -36,6 +44,9 @@ export const env = createEnv({
     WORKOS_API_KEY: process.env.WORKOS_API_KEY,
     WORKOS_CLIENT_ID: process.env.WORKOS_CLIENT_ID,
     WORKOS_COOKIE_PASSWORD: process.env.WORKOS_COOKIE_PASSWORD,
+    ATLAS_ENCRYPTION_KEY: process.env.ATLAS_ENCRYPTION_KEY,
+    GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID,
+    GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET,
     NEXT_PUBLIC_WORKOS_REDIRECT_URI:
       process.env.NEXT_PUBLIC_WORKOS_REDIRECT_URI,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,

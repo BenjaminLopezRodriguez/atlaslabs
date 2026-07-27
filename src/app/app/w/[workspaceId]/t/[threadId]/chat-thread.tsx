@@ -3,12 +3,34 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { CheckCheck } from "lucide-react";
+import { ArrowLeft, CheckCheck, FileDiff } from "lucide-react";
 
-import { ChatComposer, ChatThreadMenu } from "@/components/atlas/chat-composer";
+import { AgentPlan, type PlanStep } from "@/components/atlas/agent-plan";
+import {
+  ChatComposer,
+  ChatThreadMenu,
+  type ComposerSubmitOpts,
+} from "@/components/atlas/chat-composer";
 import { ChatThreadHeader } from "@/components/atlas/chat-thread-header";
+import {
+  EditReview,
+  type ReviewableEdit,
+} from "@/components/atlas/edit-review";
 import { SpacePreviewLink } from "@/components/atlas/space-preview-link";
+import { AgentMarkdown } from "@/components/atlas/agent-markdown";
+import {
+  BuildStage,
+  type BuildStageMeta,
+} from "@/components/atlas/build-stage";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
+import { Button } from "@/components/ui/button";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import {
   DropdownMenuContent,
   DropdownMenuItem,
@@ -30,6 +52,14 @@ function formatTime(value: Date | string | null | undefined) {
     hour: "numeric",
     minute: "2-digit",
   }).format(d);
+}
+
+type Progress = { phase: string; detail?: string };
+
+/** A reply row that exists but has not finished; meta carries its progress. */
+function runningProgress(meta: unknown): Progress[] | null {
+  const m = meta as { running?: boolean; progress?: Progress[] } | null;
+  return m?.running ? (m.progress ?? []) : null;
 }
 
 /** Empty streaming reply — caret, then throb + Thinking… after 200ms. */
@@ -55,6 +85,44 @@ function AgentPendingReply({ label = "thinking..." }: { label?: string }) {
           <span className="shimmer text-sm font-medium">{label}</span>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+/**
+ * What the turn has done so far. The last entry is still in flight, so it
+ * throbs; everything above it is settled and reads as history.
+ */
+function AgentProgress({
+  steps,
+  startedAt,
+}: {
+  steps: Progress[];
+  startedAt: Date | string;
+}) {
+  const done = steps.slice(0, -1);
+  const current = steps.at(-1);
+  /*
+   * Nothing reported yet and the row is not new: the turn is queued behind
+   * another, or no worker is running at all. Silence is the failure mode of a
+   * background queue, so name it instead of throbbing indefinitely.
+   */
+  const stalled =
+    steps.length === 0 && Date.now() - new Date(startedAt).getTime() > 30_000;
+  return (
+    <div className="mb-2 flex flex-col gap-1" aria-live="polite">
+      {done.map((s, i) => (
+        <span key={`${s.phase}-${i}`} className="text-muted-foreground text-xs">
+          {s.detail ?? s.phase}
+        </span>
+      ))}
+      <AgentPendingReply
+        label={
+          current?.detail ??
+          current?.phase ??
+          (stalled ? "still waiting to start…" : "thinking...")
+        }
+      />
     </div>
   );
 }
@@ -180,11 +248,18 @@ export function ChatThread({
   const utils = api.useUtils();
   const [draft, setDraft] = useState("");
   const [optimistic, setOptimistic] = useState<string | null>(null);
+  const [changesOpen, setChangesOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const q = api.thread.messages.useQuery(
     { threadId },
-    { refetchInterval: 4000 },
+    {
+      // A turn in flight writes progress to its reply row; poll for it.
+      refetchInterval: (query) =>
+        query.state.data?.messages.some((m) => runningProgress(m.meta))
+          ? 1200
+          : 4000,
+    },
   );
   const post = api.thread.post.useMutation({
     onSuccess: () => {
@@ -203,6 +278,20 @@ export function ChatThread({
     },
   });
   const spaces = api.thread.spaces.useQuery({ workspaceId });
+  /*
+   * Edits are fetched rather than read from the message meta: accepting one
+   * changes its status, and the message row is immutable history.
+   */
+  const edits = api.space.edits.useQuery(
+    { threadId },
+    { enabled: Boolean(q.data?.thread.machineId) },
+  );
+  const editsById = new Map(
+    (edits.data ?? []).map((e) => [e.id, e as ReviewableEdit]),
+  );
+  const pendingEdits: ReviewableEdit[] = (edits.data ?? []).filter(
+    (e) => e.status === "pending",
+  );
 
   const messages = q.data?.messages ?? [];
   const studio = messages.length > 0 || Boolean(optimistic);
@@ -217,12 +306,12 @@ export function ChatThread({
     bottomRef.current?.scrollIntoView({ block: "end" });
   }, [studio, messages.length, optimistic, awaiting]);
 
-  function send() {
+  function send(opts: ComposerSubmitOpts) {
     const content = draft.trim();
     if (!content || busy) return;
     setDraft("");
     setOptimistic(content);
-    post.mutate({ threadId, content });
+    post.mutate({ threadId, content, paths: opts.paths });
   }
 
   if (q.isLoading) {
@@ -246,15 +335,40 @@ export function ChatThread({
         <ChatThreadHeader
           title={title}
           leading={
-            <Link
-              href={`/app/w/${workspaceId}`}
-              className="text-muted-foreground hover:text-foreground px-2 text-[13px] md:hidden"
-            >
-              ←
-            </Link>
+            /* Own pill, mobile only — manycat's back affordance: the title is
+               already the breadcrumb on desktop. */
+            <div className="bg-background/90 flex items-center rounded-full p-1 shadow-md ring-1 ring-black/5 backdrop-blur-md md:hidden dark:ring-white/10">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Back to workspace"
+                className="size-8 rounded-full"
+                nativeButton={false}
+                render={<Link href={`/app/w/${workspaceId}`} />}
+              >
+                <ArrowLeft className="size-4" aria-hidden="true" />
+              </Button>
+            </div>
           }
           actions={
             <>
+              {pendingEdits.length ? (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Review ${pendingEdits.length} pending change${
+                    pendingEdits.length === 1 ? "" : "s"
+                  }`}
+                  className="relative size-8 rounded-full"
+                  onClick={() => setChangesOpen(true)}
+                >
+                  <FileDiff className="size-4" aria-hidden="true" />
+                  <span
+                    className="bg-signal absolute top-0.5 right-0.5 size-2 rounded-full"
+                    aria-hidden
+                  />
+                </Button>
+              ) : null}
               {boundMachineId ? (
                 <SpacePreviewLink machineId={boundMachineId} />
               ) : null}
@@ -274,6 +388,30 @@ export function ChatThread({
           }
         />
       ) : null}
+
+      {/* Pending diffs, gathered. Inline cards stay the primary review surface;
+          this is for the ones that scrolled away — the mobile case. */}
+      <Drawer
+        open={changesOpen}
+        onOpenChange={setChangesOpen}
+        swipeDirection="down"
+        showSwipeHandle
+      >
+        <DrawerContent className="flex max-h-none flex-col p-0 sm:max-w-md">
+          <DrawerHeader className="border-b px-6 pt-6 pb-4 text-left">
+            <DrawerTitle className="text-left leading-snug">
+              Pending changes
+            </DrawerTitle>
+            <DrawerDescription className="text-left font-mono text-xs">
+              {pendingEdits.length}{" "}
+              {pendingEdits.length === 1 ? "file" : "files"} waiting on you
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+            <EditReview threadId={threadId} edits={pendingEdits} />
+          </div>
+        </DrawerContent>
+      </Drawer>
 
       <div
         className={cn(
@@ -310,9 +448,25 @@ export function ChatThread({
                 ) : (
                   <Message key={m.id} align="start">
                     <MessageContent className="max-w-none">
-                      <p className="text-foreground text-sm leading-relaxed whitespace-pre-wrap">
-                        {m.content}
-                      </p>
+                      <BuildStage meta={(m.meta ?? {}) as BuildStageMeta} />
+                      {runningProgress(m.meta) ? (
+                        <AgentProgress
+                          steps={runningProgress(m.meta)!}
+                          startedAt={m.createdAt}
+                        />
+                      ) : null}
+                      <AgentMarkdown text={m.content} />
+                      <AgentPlan
+                        steps={(m.meta as { plan?: PlanStep[] })?.plan ?? []}
+                      />
+                      <EditReview
+                        threadId={threadId}
+                        edits={(
+                          (m.meta as { editIds?: string[] })?.editIds ?? []
+                        )
+                          .map((id) => editsById.get(id))
+                          .filter((e): e is ReviewableEdit => Boolean(e))}
+                      />
                       {q.data?.thread.specialistId &&
                         typeof (m.meta as { runId?: string })?.runId ===
                           "string" && (
@@ -347,7 +501,8 @@ export function ChatThread({
                 </Message>
               ) : null}
 
-              {post.isPending || createSpecialist.isPending ? (
+              {(post.isPending || createSpecialist.isPending) &&
+              !messages.some((m) => runningProgress(m.meta)) ? (
                 <Message align="start">
                   <MessageContent className="max-w-none">
                     <AgentPendingReply
@@ -442,7 +597,7 @@ export function ChatHome({
   const busy =
     createThread.isPending || post.isPending || createSpecialist.isPending;
 
-  async function startChat(text: string) {
+  async function startChat(text: string, paths: string[] = []) {
     // A space-bound thread must live in that space's workspace, not blindly in
     // the personal one, or `post` would reject the pairing.
     const space = spaces.data?.find((s) => s.id === spaceId) ?? null;
@@ -456,7 +611,7 @@ export function ChatHome({
         workspaceId,
         machineId: space?.id,
       });
-      await post.mutateAsync({ threadId: thread.id, content: text });
+      await post.mutateAsync({ threadId: thread.id, content: text, paths });
       void utils.thread.list.invalidate({ workspaceId });
       router.replace(`/app/w/${workspaceId}/t/${thread.id}`);
     } catch (e) {
@@ -475,10 +630,10 @@ export function ChatHome({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional one-shot
   }, [initialPrompt, workspaces.data?.personal.id, spaces.data]);
 
-  async function send() {
+  async function send(opts: ComposerSubmitOpts) {
     const text = draft.trim();
     if (!text || busy) return;
-    await startChat(text);
+    await startChat(text, opts.paths);
   }
 
   return (
@@ -560,7 +715,7 @@ export function ChatHome({
           <ChatComposer
             value={draft}
             onChange={setDraft}
-            onSubmit={() => void send()}
+            onSubmit={(opts) => void send(opts)}
             placeholder={
               spaceId
                 ? "Change a file in this space…"

@@ -1,100 +1,100 @@
 "use client";
 
 import { useState } from "react";
-import { Database, Bot } from "lucide-react";
+import { Cpu, Bot } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-type Mode = "data" | "agents";
+type Mode = "spaces" | "agents";
 
 interface Listing {
   label: string;
-  kind: "dataset" | "agent";
+  kind: "space" | "agent";
   kindLabel: string;
   detail: string;
 }
 
-const dataListings: Listing[] = [
+const spaceListings: Listing[] = [
   {
-    label: "Retail foot-traffic feed",
-    kind: "dataset",
-    kindLabel: "Dataset",
-    detail: "Geocoded, hourly · Licensed",
+    label: "checkout-rewrite",
+    kind: "space",
+    kindLabel: "Space",
+    detail: "Running · dev server on :3000",
   },
   {
-    label: "Clinical trial abstracts",
-    kind: "dataset",
-    kindLabel: "Dataset",
-    detail: "Curated corpus · Research use",
+    label: "docs-site",
+    kind: "space",
+    kindLabel: "Space",
+    detail: "Running · public URL live",
   },
   {
-    label: "Supply-chain event stream",
-    kind: "dataset",
-    kindLabel: "Dataset",
-    detail: "Real-time API · Enterprise",
+    label: "api-migration",
+    kind: "space",
+    kindLabel: "Space",
+    detail: "Idle · 4 threads, 812 files",
   },
   {
-    label: "Brand sentiment archive",
-    kind: "dataset",
-    kindLabel: "Dataset",
-    detail: "Multi-language · Quarterly",
+    label: "scratch",
+    kind: "space",
+    kindLabel: "Space",
+    detail: "Idle · resumes on next prompt",
   },
 ];
 
 const agentListings: Listing[] = [
   {
-    label: "Contract review agent",
+    label: "Refactor the auth middleware",
     kind: "agent",
     kindLabel: "Agent",
-    detail: "Legal · Redlines + risk flags",
+    detail: "checkout-rewrite · 9 files edited",
   },
   {
-    label: "Account research agent",
+    label: "Wire up the invite flow",
     kind: "agent",
     kindLabel: "Agent",
-    detail: "Sales · Briefs in under 2 min",
+    detail: "api-migration · tests passing",
   },
   {
-    label: "Support triage agent",
+    label: "Fix the failing build",
     kind: "agent",
     kindLabel: "Agent",
-    detail: "Ops · Routes + drafts replies",
+    detail: "docs-site · ran pnpm build",
   },
   {
-    label: "Compliance monitor",
+    label: "Draft the CLI reference",
     kind: "agent",
     kindLabel: "Agent",
-    detail: "Risk · Policy drift alerts",
+    detail: "scratch · waiting on you",
   },
 ];
 
 const steps = [
   {
-    title: "Browse",
-    body: "Search datasets and specialist agents by domain, format, and terms — with clear provenance and pricing.",
+    title: "Open a space",
+    body: "A cloud machine with a filesystem, a shell, and ports you can expose. Nothing to install on your laptop.",
   },
   {
-    title: "License",
-    body: "Buy access with usage rights you can trust. Creators set the terms; Atlas handles delivery and metering.",
+    title: "Prompt",
+    body: "Describe the change and the agent works in the space — reading the repo, editing files, running commands.",
   },
   {
-    title: "Connect",
-    body: "Pull data via API or drop agents into your workflows. Swap specialists without rebuilding the stack.",
+    title: "Take over",
+    body: "Jump in from the Atlas CLI whenever you want the keyboard. Same machine, same files, no handoff.",
   },
   {
-    title: "Publish",
-    body: "List your own datasets and agents. Reach buyers, track usage, and earn when your work gets used.",
+    title: "Ship",
+    body: "Serve it on a port and share the public URL, or push from the space. The work ends where it was built.",
   },
 ];
 
 const kindIcons = {
-  dataset: Database,
+  space: Cpu,
   agent: Bot,
 };
 
 export function HowItWorks() {
-  const [mode, setMode] = useState<Mode>("data");
-  const listings = mode === "data" ? dataListings : agentListings;
+  const [mode, setMode] = useState<Mode>("spaces");
+  const listings = mode === "spaces" ? spaceListings : agentListings;
 
   return (
     <section
@@ -105,7 +105,7 @@ export function HowItWorks() {
       <div className="mm-shell">
         <div className="max-w-2xl">
           <h2 id="how-h" className="mm-title text-foreground">
-            From listing to workflow.
+            From prompt to running code.
           </h2>
         </div>
 
@@ -130,18 +130,18 @@ export function HowItWorks() {
               <span className="bg-foreground/25 size-1.5 rounded-full" />
               <span className="bg-foreground/25 size-1.5 rounded-full" />
               <span className="text-muted-foreground ml-1.5 font-mono text-[11px]">
-                listings
+                workspace
               </span>
             </div>
 
             <div
               role="radiogroup"
-              aria-label="Listing type"
+              aria-label="View"
               className="bg-muted flex items-center gap-0.5 rounded-md p-0.5"
             >
               {(
                 [
-                  ["data", "Data"],
+                  ["spaces", "Spaces"],
                   ["agents", "Agents"],
                 ] as const
               ).map(([value, label]) => (

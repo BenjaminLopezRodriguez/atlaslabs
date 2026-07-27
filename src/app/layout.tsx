@@ -31,7 +31,7 @@ const libreBaskerville = Libre_Baskerville({
 export const metadata: Metadata = {
   title: "Atlas Labs",
   description:
-    "Atlas is the marketplace for data and specialist agents — buy, sell, and compose datasets and domain experts into your workflows.",
+    "Atlas is an agentic coding workspace — a cloud machine you and your agents build in together, from the browser or the CLI.",
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 

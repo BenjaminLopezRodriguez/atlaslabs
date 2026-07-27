@@ -1,3 +1,5 @@
+import { Apple } from "lucide-react";
+
 import { ATLAS_PROMPT_HEADER } from "@/app/_constants/constants";
 import { PromptBox } from "@/components/atlas/prompt-box";
 import { getSessionUser } from "@/server/auth";
@@ -29,6 +31,12 @@ export async function Hero() {
         <div className="animate-mm animate-delay-100 mt-8 w-full text-left">
           <PromptBox spaces={spaces} signedIn={!!user} />
         </div>
+
+        {/* The "from anywhere" promise, stated where it is made. */}
+        <p className="animate-mm animate-delay-200 text-muted-foreground border-border mt-6 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[13px]">
+          <Apple className="size-3.5" aria-hidden="true" />
+          iOS app coming soon — keep building from your phone
+        </p>
       </div>
     </section>
   );

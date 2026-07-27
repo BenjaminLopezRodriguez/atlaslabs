@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { ChatComposer } from "@/components/atlas/chat-composer";
 import type { SpaceOption } from "@/components/atlas/composer-tools";
+import { ProjectFolderCard } from "@/components/ui/project-folder-card";
 
 const EXAMPLES = [
   "Learn our architecture and review every pull request.",
@@ -67,20 +68,16 @@ export function PromptBox({
         onSpaceChange={setSpaceId}
         signedIn={signedIn}
       />
-
-      <ul className="divide-border mt-2 flex w-full flex-col divide-y">
+      {signedIn && (
+      <ul className="mosaic-grid w-full aspect-square  mt-2 grid grid-cols-2 gap-2">
         {examples.map((ex) => (
           <li key={ex}>
-            <button
-              type="button"
-              onClick={() => setPrompt(ex)}
-              className="text-muted-foreground hover:text-foreground w-full py-2.5 text-left text-sm transition-colors"
-            >
-              {ex}
-            </button>
+            {/* <ProjectFolderCard projectName={ex}/> */}
+         
           </li>
         ))}
       </ul>
+      )}
     </div>
   );
 }

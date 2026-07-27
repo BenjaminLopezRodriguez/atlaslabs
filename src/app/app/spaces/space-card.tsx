@@ -3,6 +3,7 @@
 import { Loader2, RotateCcw, Square, Trash2, UserPlus, Users } from "lucide-react";
 import { useState, useTransition } from "react";
 
+import { DeployButton } from "@/components/atlas/deploy-button";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -111,6 +112,10 @@ export function SpaceCard({ space }: { space: SpaceView }) {
               </p>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {!space.stopped && (
+            <DeployButton machineId={space.id} className="rounded-full" />
+          )}
 
           {!space.stopped && (
             <Button

@@ -1314,7 +1314,118 @@ const HELP = `atlas — Atlas Labs CLI
   atlas ping_user <slug> "<question>" [--timeout <s>] [--context <l>] [--no-wait]
   atlas ping log <slug>
 
+Inside a deployment (no login; uses ATLAS_DEPLOY_TOKEN):
+  atlas vm ready --url <url> [--note <text>]
+  atlas vm notify "<message>"
+  atlas vm status
+
 Server: ATLAS_BASE_URL (default ${DEFAULT_BASE})`;
+
+
+/* ------------------------------ vm mode ----------------------------- */
+
+/**
+ * VM mode: the CLI running inside a deployed container.
+ *
+ * There is no login and no config file in a container — the credential is
+ * ATLAS_DEPLOY_TOKEN, injected by Atlas at deploy time and scoped to one
+ * machine. It can do exactly two things: report a live URL and post an update
+ * to everyone on the project. It cannot read files, run commands, or act as
+ * the person who deployed it, so leaking it out of the image costs the project
+ * some noise rather than an account.
+ *
+ * Every `atlas vm` command exits 0 when the token is absent. A deployment must
+ * not crash-loop because its optional reporting integration is unconfigured.
+ */
+export function deployToken(): string | null {
+  const token = process.env.ATLAS_DEPLOY_TOKEN?.trim();
+  return token && token.startsWith("atlas_dt_") ? token : null;
+}
+
+function vmBaseUrl(): string {
+  return (process.env.ATLAS_API_URL ?? DEFAULT_BASE).replace(/\/+$/, "");
+}
+
+async function vmApi(route: string, body: unknown): Promise<any> {
+  const token = deployToken();
+  if (!token) return null;
+  const res = await fetch(`${vmBaseUrl()}${route}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  });
+  const json = (await res.json().catch(() => ({}))) as any;
+  if (!res.ok) {
+    // Reported, not thrown: see the note above about crash loops.
+    console.error(`atlas vm: ${res.status} ${json?.error ?? "request failed"}`);
+    return null;
+  }
+  return json;
+}
+
+export function flagValue(rest: string[], name: string): string | undefined {
+  const i = rest.indexOf(`--${name}`);
+  return i === -1 ? undefined : rest[i + 1];
+}
+
+async function cmdVm(sub: string | undefined, rest: string[]) {
+  if (!deployToken()) {
+    console.log(
+      "atlas vm: no ATLAS_DEPLOY_TOKEN in this environment — nothing to report.",
+    );
+    return;
+  }
+
+  switch (sub) {
+    case "ready": {
+      const url =
+        flagValue(rest, "url") ??
+        (process.env.RAILWAY_PUBLIC_DOMAIN
+          ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+          : undefined);
+      if (!url) {
+        return fail("Usage: atlas vm ready --url <url>");
+      }
+      const note = flagValue(rest, "note");
+      const res = await vmApi("/api/v1/vm/ready", { url, note });
+      if (res?.ok) {
+        console.log(
+          res.notified
+            ? `Reported live at ${url} — told ${res.recipients ?? 0} on the project.`
+            : `Reported live at ${url}.`,
+        );
+      }
+      return;
+    }
+
+    case "notify": {
+      const message = rest.filter((a) => !a.startsWith("--")).join(" ").trim();
+      if (!message) return fail('Usage: atlas vm notify "<message>"');
+      const res = await vmApi("/api/v1/vm/notify", { message });
+      if (res?.ok) {
+        console.log(`Update sent to ${res.recipients ?? 0} on the project.`);
+      }
+      return;
+    }
+
+    case "status":
+    case undefined: {
+      const res = await vmApi("/api/v1/vm/heartbeat", {});
+      if (res?.ok) {
+        console.log(
+          `Connected as deployment of ${res.machine}${res.liveUrl ? ` (${res.liveUrl})` : ""}.`,
+        );
+      }
+      return;
+    }
+
+    default:
+      return fail("Usage: atlas vm ready --url <url> | notify \"<msg>\" | status");
+  }
+}
 
 async function main() {
   const [cmd, sub, ...rest] = process.argv.slice(2);
@@ -1368,6 +1479,8 @@ async function main() {
       return cmdPingUser(sub, rest);
     case "ping":
       return cmdPing(sub, rest);
+    case "vm":
+      return cmdVm(sub, rest);
     default:
       console.log(HELP);
   }

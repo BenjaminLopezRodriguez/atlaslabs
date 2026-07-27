@@ -1,5 +1,7 @@
 import { cliRouter } from "@/server/api/routers/cli";
+import { connectionRouter } from "@/server/api/routers/connection";
 import { correctionRouter } from "@/server/api/routers/correction";
+import { spaceRouter } from "@/server/api/routers/space";
 import { groupRouter } from "@/server/api/routers/group";
 import { runRouter } from "@/server/api/routers/run";
 import { specialistRouter } from "@/server/api/routers/specialist";
@@ -14,7 +16,9 @@ import { createCallerFactory, createTRPCRouter } from "@/server/api/trpc";
  */
 export const appRouter = createTRPCRouter({
   cli: cliRouter,
+  connection: connectionRouter,
   correction: correctionRouter,
+  space: spaceRouter,
   group: groupRouter,
   run: runRouter,
   specialist: specialistRouter,

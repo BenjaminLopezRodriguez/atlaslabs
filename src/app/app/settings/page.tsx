@@ -65,6 +65,20 @@ export default async function SettingsPage() {
         </section>
 
         <section className="mt-10">
+          <h2 className="text-sm font-medium">Connections</h2>
+          <p className="text-muted-foreground mt-1 text-xs">
+            GitHub and Railway — what your spaces can pull code from and deploy
+            to.
+          </p>
+          <a
+            href="/app/settings/connections"
+            className="mt-3 inline-block text-sm underline"
+          >
+            Manage connections
+          </a>
+        </section>
+
+        <section className="mt-10">
           <h2 className="text-sm font-medium">Devices</h2>
           <p className="text-muted-foreground mt-1 text-xs">
             Every browser session and CLI login is its own device. Signing one

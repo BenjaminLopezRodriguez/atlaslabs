@@ -40,6 +40,15 @@
   --color-foreground: var(--foreground);
   --color-background: var(--background);
   --color-signal: var(--signal);
+  --color-code-background: var(--code-background);
+  --color-code-foreground: var(--code-foreground);
+  --color-code-muted: var(--code-muted);
+  --color-code-accent: var(--code-accent);
+  --color-code-keyword: var(--code-keyword);
+  --color-code-gutter: var(--code-gutter);
+  --color-code-border: var(--code-border);
+  --color-code-selection: var(--code-selection);
+  --color-code-del: var(--code-del);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -51,6 +60,21 @@
 
 :root {
   /* minimachines-adjacent: cool ink, steel signal, tight radius */
+
+  /*
+   * Code surface, ported from manycat. Dark in both themes on purpose: a code
+   * block is an inset — the furthest surface from the reader — and flipping it
+   * to paper-white in light mode makes fenced code read as prose.
+   */
+  --code-background: oklch(0.18 0 0);
+  --code-foreground: oklch(0.95 0 0);
+  --code-muted: oklch(0.62 0 0);
+  --code-accent: oklch(0.92 0 0);
+  --code-keyword: oklch(0.78 0 0);
+  --code-gutter: oklch(0.45 0 0);
+  --code-border: oklch(0.32 0 0);
+  --code-selection: oklch(0.3 0 0);
+  --code-del: oklch(0.65 0.12 25);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
@@ -87,6 +111,16 @@
 }
 
 .dark {
+  /* Inset stays below the page: code is darker than --background here. */
+  --code-background: oklch(0.11 0 0);
+  --code-foreground: oklch(0.95 0 0);
+  --code-muted: oklch(0.64 0 0);
+  --code-accent: oklch(0.92 0 0);
+  --code-keyword: oklch(0.8 0 0);
+  --code-gutter: oklch(0.5 0 0);
+  --code-border: oklch(0.3 0 0);
+  --code-selection: oklch(0.3 0 0);
+  --code-del: oklch(0.7 0.12 25);
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -126,7 +160,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply antialiased bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
     position: relative;
   }
   html {

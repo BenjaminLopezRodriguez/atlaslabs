@@ -41,5 +41,7 @@ export const config = {
     "/app/:path*",
     "/new",
     "/device",
+    // OAuth connect/callback read the session to attribute the token.
+    "/api/github/:path*",
   ],
 };

@@ -29,11 +29,11 @@ export function Waitlist() {
 
         <div className="relative z-10 mx-auto flex w-full max-w-lg flex-col items-start px-6 py-16 sm:px-10 sm:py-20 md:items-center md:text-center">
           <h2 id="waitlist-h" className="mm-title text-white">
-            Join the marketplace
+            Get a space
           </h2>
           <p className="mt-3 max-w-md text-sm leading-relaxed text-white/70 sm:text-base">
-            Whether you&apos;re buying data, hiring specialist agents, or
-            publishing your own — we&apos;re opening access in cohorts.
+            A cloud machine for you and your agents to build in, from the
+            browser or the CLI. We&apos;re opening access in cohorts.
           </p>
 
           {submitted ? (

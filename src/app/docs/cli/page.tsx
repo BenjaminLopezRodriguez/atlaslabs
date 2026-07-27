@@ -86,8 +86,8 @@ export default function CliDocsPage() {
           </h1>
           <p className="text-muted-foreground mt-4 max-w-xl text-[15px] leading-7">
             One command installs a single self-contained file. Sign in, and you
-            have a cloud machine you and your agents can work in together —
-            with a public URL for anything you serve.
+            have a cloud machine you and your agents can work in together — with
+            a public URL for anything you serve.
           </p>
 
           <div className="mt-7">
@@ -141,12 +141,15 @@ export default function CliDocsPage() {
                   </strong>{" "}
                   Installs one self-contained file. Goes to{" "}
                   <code className="font-mono">/usr/local/bin</code> when
-                  writable, otherwise <code className="font-mono">~/.local/bin</code>
-                  {" "}— never needs <code className="font-mono">sudo</code>, and
-                  verifies a SHA-256 checksum before anything lands on your PATH.
+                  writable, otherwise{" "}
+                  <code className="font-mono">~/.local/bin</code> — never needs{" "}
+                  <code className="font-mono">sudo</code>, and verifies a
+                  SHA-256 checksum before anything lands on your PATH.
                 </p>
                 <CopyBlock
-                  lines={["curl -fsSL https://www.atlaslabs.id/install.sh | sh"]}
+                  lines={[
+                    "curl -fsSL https://www.atlaslabs.id/install.sh | sh",
+                  ]}
                 />
               </div>
 
@@ -188,7 +191,11 @@ export default function CliDocsPage() {
 
         {/* -------------------------------------------------------- started */}
         <div className="py-10">
-          <Section id="start" eyebrow="Getting started" title="Your first machine">
+          <Section
+            id="start"
+            eyebrow="Getting started"
+            title="Your first machine"
+          >
             <div className="space-y-6">
               <Step n={1} title="Sign in">
                 <p className="text-muted-foreground text-[13px] leading-6">
@@ -201,17 +208,19 @@ export default function CliDocsPage() {
               <Step n={2} title="Create a machine">
                 <p className="text-muted-foreground text-[13px] leading-6">
                   The name is a slug: lowercase letters, numbers and dashes.
-                  Running this twice is a clean conflict, never a second machine.
+                  Running this twice is a clean conflict, never a second
+                  machine.
                 </p>
                 <CopyBlock lines={["atlas machine create my-app"]} />
               </Step>
 
               <Step n={3} title="Push your work and run it">
                 <p className="text-muted-foreground text-[13px] leading-6">
-                  Paths are relative to <code className="font-mono">/workspace</code>.
-                  Everything after <code className="font-mono">--</code> runs on
-                  the machine verbatim, and the exit code comes back to your
-                  shell — so this fails your CI when the tests fail.
+                  Paths are relative to{" "}
+                  <code className="font-mono">/workspace</code>. Everything
+                  after <code className="font-mono">--</code> runs on the
+                  machine verbatim, and the exit code comes back to your shell —
+                  so this fails your CI when the tests fail.
                 </p>
                 <CopyBlock
                   lines={[
@@ -225,8 +234,9 @@ export default function CliDocsPage() {
                 <p className="text-muted-foreground text-[13px] leading-6">
                   Bind to <code className="font-mono">0.0.0.0</code> on port{" "}
                   <strong className="text-foreground font-medium">3000</strong>{" "}
-                  or <strong className="text-foreground font-medium">8000</strong> —
-                  those are the ports routed from outside, and they are fixed
+                  or{" "}
+                  <strong className="text-foreground font-medium">8000</strong>{" "}
+                  — those are the ports routed from outside, and they are fixed
                   when the machine is created.
                 </p>
                 <CopyBlock
@@ -240,9 +250,9 @@ export default function CliDocsPage() {
               <Step n={5} title="Stop it when you're done">
                 <p className="text-muted-foreground text-[13px] leading-6">
                   Machines bill while they run. There is a 1-hour cap and a
-                  5-minute idle timeout as a backstop, but stopping is the habit.
-                  Stopping is final — the filesystem does not survive, so pull
-                  anything you want to keep first.
+                  5-minute idle timeout as a backstop, but stopping is the
+                  habit. Stopping is final — the filesystem does not survive, so
+                  pull anything you want to keep first.
                 </p>
                 <CopyBlock
                   lines={[
@@ -265,9 +275,9 @@ export default function CliDocsPage() {
             title="Coworking with Atlas"
           >
             <p className="text-muted-foreground text-[14px] leading-7">
-              Most tools make an agent work <em>on</em> your machine. Atlas gives
-              you and your agents a third place: a machine that belongs to the
-              work, not to either of you. You both reach it through the same
+              Most tools make an agent work <em>on</em> your machine. Atlas
+              gives you and your agents a third place: a machine that belongs to
+              the work, not to either of you. You both reach it through the same
               commands, and neither of you has to be online for it to keep
               existing.
             </p>
@@ -287,14 +297,17 @@ export default function CliDocsPage() {
                 {
                   icon: Globe,
                   title: "Ends in a URL",
-                  body: "Anything you serve on port 3000 or 8000 gets a public HTTPS address. The handoff is a link, not \"works on my machine\".",
+                  body: 'Anything you serve on port 3000 or 8000 gets a public HTTPS address. The handoff is a link, not "works on my machine".',
                 },
               ].map(({ icon: Icon, title, body }) => (
                 <div
                   key={title}
                   className="border-border bg-card rounded-xl border p-4"
                 >
-                  <Icon className="text-muted-foreground mb-3 size-4" aria-hidden />
+                  <Icon
+                    className="text-muted-foreground mb-3 size-4"
+                    aria-hidden
+                  />
                   <h3 className="text-foreground text-[13px] font-medium">
                     {title}
                   </h3>
@@ -312,16 +325,16 @@ export default function CliDocsPage() {
                 </h3>
                 <p className="text-muted-foreground mt-1.5 text-[13px] leading-7">
                   Point your coding agent at the workspace and it can drive the
-                  machine directly — push files, run builds, read logs, hand back
-                  the URL. Because it uses the CLI you already approved, you are
-                  not clicking through a new permission prompt for every command
-                  it invents.
+                  machine directly — push files, run builds, read logs, hand
+                  back the URL. Because it uses the CLI you already approved,
+                  you are not clicking through a new permission prompt for every
+                  command it invents.
                 </p>
                 <CopyBlock
                   className="mt-3"
                   lines={[
                     "atlas machine create my-app",
-                    "# then, to your agent: \"build the landing page on my-app and send me the URL\"",
+                    '# then, to your agent: "build the landing page on my-app and send me the URL"',
                   ]}
                 />
               </div>
@@ -334,8 +347,8 @@ export default function CliDocsPage() {
                   Every device that signs in gets its own identity, and every
                   command, upload and agent run is recorded against it. When two
                   people and three agents share a workspace, &ldquo;who ran
-                  that?&rdquo; has an answer. Revoke a device and its access ends
-                  immediately, everywhere.
+                  that?&rdquo; has an answer. Revoke a device and its access
+                  ends immediately, everywhere.
                 </p>
                 <CopyBlock className="mt-3" lines={["atlas device list"]} />
               </div>
@@ -370,14 +383,35 @@ export default function CliDocsPage() {
                     ["atlas machine list", "Your machines and their status"],
                     ["atlas machine status <slug>", "Status and ports"],
                     ["atlas machine rm <slug>", "Terminate it"],
-                    ["atlas exec <slug> -- <cmd>", "Run a command; mirrors its exit code"],
+                    [
+                      "atlas exec <slug> -- <cmd>",
+                      "Run a command; mirrors its exit code",
+                    ],
                     ["atlas put <slug> <local> <remote>", "Upload a file"],
                     ["atlas get <slug> <remote> [local|-]", "Download a file"],
                     ["atlas ports <slug>", "Public URLs for the machine"],
                     ["atlas open <slug>", "Open in Atlas Browser"],
-                    ["atlas device list | rm <id>", "Signed-in devices; revoke one"],
+                    [
+                      "atlas device list | rm <id>",
+                      "Signed-in devices; revoke one",
+                    ],
+                    [
+                      "atlas vm ready --url <url>",
+                      "Inside a deployment: report the live URL",
+                    ],
+                    [
+                      'atlas vm notify "<message>"',
+                      "Inside a deployment: update everyone on the project",
+                    ],
+                    [
+                      "atlas vm status",
+                      "Inside a deployment: check the credential",
+                    ],
                   ].map(([cmd, desc]) => (
-                    <tr key={cmd} className="border-border/70 border-b last:border-0">
+                    <tr
+                      key={cmd}
+                      className="border-border/70 border-b last:border-0"
+                    >
                       <td className="text-foreground w-1/2 px-4 py-2.5 align-top font-mono text-[12.5px] whitespace-nowrap">
                         {cmd}
                       </td>

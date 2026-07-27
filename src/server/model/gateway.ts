@@ -1,3 +1,8 @@
+/** Prose/review: one shot, no tools. */
+const TEXT_MODEL = "claude-sonnet-5";
+/** Code generation: the tool-use loop that edits files in a space. */
+const CODE_MODEL = "claude-opus-5";
+
 export type GenerateInput = {
   system: string;
   prompt: string;
@@ -17,7 +22,7 @@ export type GenerateResult = {
  */
 export async function generate(input: GenerateInput): Promise<GenerateResult> {
   const key = process.env.ANTHROPIC_API_KEY;
-  const model = "claude-sonnet-5";
+  const model = TEXT_MODEL;
   if (!key) {
     return {
       model: "stub",
@@ -95,7 +100,7 @@ export async function generateWithTools(input: {
   maxTokens?: number;
 }): Promise<ToolTurnResult> {
   const key = process.env.ANTHROPIC_API_KEY;
-  const model = "claude-sonnet-5";
+  const model = CODE_MODEL;
   if (!key) {
     return {
       text: "[stub model — set ANTHROPIC_API_KEY for real inference] No changes were made.",
@@ -116,7 +121,10 @@ export async function generateWithTools(input: {
     },
     body: JSON.stringify({
       model,
-      max_tokens: input.maxTokens ?? 4096,
+      // Opus 5 thinks by default and max_tokens caps thinking + output together,
+      // so this is deliberately roomier than a no-thinking budget would need.
+      max_tokens: input.maxTokens ?? 16000,
+      output_config: { effort: "xhigh" },
       system: input.system,
       tools: input.tools,
       messages: input.messages,

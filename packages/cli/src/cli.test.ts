@@ -6,6 +6,8 @@ import test from "node:test";
 
 import {
   collectFiles,
+  deployToken,
+  flagValue,
   globToRegExp,
   isSecretPath,
   parseExecArgs,
@@ -118,4 +120,28 @@ void test("parseInviteArgs", () => {
   assert.deepEqual(parseInviteArgs(["--role"]), {
     error: "--role needs a value.",
   });
+});
+
+void test("deployToken only accepts a real deploy token", () => {
+  const saved = process.env.ATLAS_DEPLOY_TOKEN;
+  try {
+    delete process.env.ATLAS_DEPLOY_TOKEN;
+    assert.equal(deployToken(), null);
+
+    // A user PAT must never be usable as a deployment credential.
+    process.env.ATLAS_DEPLOY_TOKEN = "atlas_pat_abc";
+    assert.equal(deployToken(), null);
+
+    process.env.ATLAS_DEPLOY_TOKEN = "  atlas_dt_abc  ";
+    assert.equal(deployToken(), "atlas_dt_abc");
+  } finally {
+    if (saved === undefined) delete process.env.ATLAS_DEPLOY_TOKEN;
+    else process.env.ATLAS_DEPLOY_TOKEN = saved;
+  }
+});
+
+void test("flagValue reads --name value pairs", () => {
+  assert.equal(flagValue(["--url", "https://x.dev"], "url"), "https://x.dev");
+  assert.equal(flagValue(["--note", "hi"], "url"), undefined);
+  assert.equal(flagValue([], "url"), undefined);
 });

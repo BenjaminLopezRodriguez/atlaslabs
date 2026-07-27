@@ -10,6 +10,7 @@ import { db } from "@/server/db";
 import { machines, users, workspaces } from "@/server/db/schema";
 import { createMachine, getMachineFile } from "@/server/machines/store";
 import { runSpaceAgent } from "@/server/spaces/agent";
+import { applyEdit, rejectEdit } from "@/server/spaces/edits";
 
 const owner = `user_agent_${randomUUID().slice(0, 8)}`;
 const realFetch = globalThis.fetch;
@@ -66,14 +67,14 @@ const toolUse = (name: string, input: Record<string, unknown>) => ({
   input,
 });
 
-void test("a write_file tool call actually lands on the machine", async () => {
+void test("a write_file tool call is proposed for review, not applied", async () => {
   const machine = await seedMachine();
   stubModel([
     {
       content: [toolUse("write_file", { path: "app.js", content: "console.log(1)" })],
       stop_reason: "tool_use",
     },
-    { content: [text("Wrote app.js.")], stop_reason: "end_turn" },
+    { content: [text("Proposed app.js.")], stop_reason: "end_turn" },
   ]);
 
   const res = await runSpaceAgent({
@@ -82,15 +83,60 @@ void test("a write_file tool call actually lands on the machine", async () => {
     userId: owner,
   });
 
-  assert.equal(res.text, "Wrote app.js.");
+  assert.equal(res.text, "Proposed app.js.");
   assert.deepEqual(
     res.steps.map((s) => [s.tool, s.ok]),
     [["write_file", true]],
   );
 
-  // The point of the whole feature: the file is really there.
+  // The point of review: nothing reached the machine yet.
+  assert.equal(res.edits.length, 1);
+  assert.equal(res.edits[0]!.status, "pending");
+  assert.equal(await getMachineFile(machine, "app.js"), null);
+
+  // Accepting is what writes it.
+  await applyEdit(res.edits[0]!, machine);
   const bytes = await getMachineFile(machine, "app.js");
   assert.equal(Buffer.from(bytes!).toString("utf8"), "console.log(1)");
+});
+
+void test("a rejected edit never touches the machine", async () => {
+  const machine = await seedMachine();
+  stubModel([
+    {
+      content: [toolUse("write_file", { path: "no.js", content: "boom" })],
+      stop_reason: "tool_use",
+    },
+    { content: [text("Proposed no.js.")], stop_reason: "end_turn" },
+  ]);
+
+  const res = await runSpaceAgent({ machine, prompt: "x", userId: owner });
+  const rejected = await rejectEdit(res.edits[0]!);
+
+  assert.equal(rejected.status, "rejected");
+  assert.equal(await getMachineFile(machine, "no.js"), null);
+});
+
+void test("set_plan and complete_step record the checklist", async () => {
+  const machine = await seedMachine();
+  stubModel([
+    {
+      content: [toolUse("set_plan", { steps: ["look", "edit"] })],
+      stop_reason: "tool_use",
+    },
+    { content: [toolUse("complete_step", { step: 1 })], stop_reason: "tool_use" },
+    { content: [text("Done.")], stop_reason: "end_turn" },
+  ]);
+
+  const res = await runSpaceAgent({ machine, prompt: "x", userId: owner });
+
+  assert.deepEqual(
+    res.plan.map((s) => [s.title, s.status]),
+    [
+      ["look", "done"],
+      ["edit", "pending"],
+    ],
+  );
 });
 
 void test("a failing tool is reported back instead of throwing", async () => {
@@ -152,4 +198,38 @@ void test("with no API key it degrades to the stub instead of failing", async ()
   const res = await runSpaceAgent({ machine, prompt: "do a thing", userId: owner });
   assert.equal(res.steps.length, 0);
   assert.match(res.text, /stub model/);
+});
+
+void test("progress is reported per tool call, not only at the end", async () => {
+  const machine = await seedMachine();
+  stubModel([
+    {
+      content: [toolUse("write_file", { path: "a.js", content: "1" })],
+      stop_reason: "tool_use",
+    },
+    {
+      content: [toolUse("write_file", { path: "b.js", content: "2" })],
+      stop_reason: "tool_use",
+    },
+    { content: [text("Done.")], stop_reason: "end_turn" },
+  ]);
+
+  const seen: { phase: string; detail?: string }[] = [];
+  const res = await runSpaceAgent({
+    machine,
+    prompt: "create two files",
+    userId: owner,
+    onProgress: (p) => {
+      seen.push(p);
+    },
+  });
+
+  // Reported as the work happened, so a blocking turn is legible while it runs.
+  assert.equal(seen.length, 2);
+  assert.deepEqual(
+    seen.map((p) => p.phase),
+    ["write_file", "write_file"],
+  );
+  assert.ok(seen[0]!.detail, "each step carries a human-readable summary");
+  assert.equal(res.steps.length, 2);
 });

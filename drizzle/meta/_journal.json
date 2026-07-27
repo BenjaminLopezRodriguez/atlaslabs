@@ -43,6 +43,34 @@
       "when": 1785152804470,
       "tag": "0005_cool_pride",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785169710497,
+      "tag": "0006_true_phalanx",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1785171936904,
+      "tag": "0007_uneven_marauders",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1785172551546,
+      "tag": "0008_equal_morph",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1785173276322,
+      "tag": "0009_low_energizer",
+      "breakpoints": true
     }
   ]
 }

@@ -9,7 +9,7 @@ export function Footer() {
             atlas
           </span>
           <span className="text-muted-foreground text-[12px]">
-            Data and specialist agents.
+            An agentic coding workspace.
           </span>
         </div>
 
@@ -18,7 +18,7 @@ export function Footer() {
             href="#product"
             className="text-muted-foreground hover:text-foreground text-[12px] transition-colors"
           >
-            Marketplace
+            Product
           </Link>
           <Link
             href="#"

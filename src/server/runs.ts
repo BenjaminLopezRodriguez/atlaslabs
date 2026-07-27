@@ -15,6 +15,7 @@ import {
 } from "@/server/db/schema";
 import { generate } from "@/server/model/gateway";
 import type { SpecialistManifest } from "@/server/specialist/manifest";
+import { spaceTurnTick } from "@/server/spaces/turns";
 
 /**
  * Postgres-backed run queue + local runtime adapter.
@@ -212,7 +213,11 @@ export async function executeRun(run: typeof runs.$inferSelect) {
 /** One worker tick: claim + execute a single run. Returns false when idle. */
 export async function workerTick(): Promise<boolean> {
   const run = await claimNextRun();
-  if (!run) return false;
-  await executeRun(run);
-  return true;
+  if (run) {
+    await executeRun(run);
+    return true;
+  }
+  // Space turns share the worker rather than a process of their own: both are
+  // Postgres-claimed queues, and one loop is one thing to keep running.
+  return spaceTurnTick();
 }

@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   index,
   pgTableCreator,
@@ -204,6 +204,15 @@ export const threads = createTable(
       onDelete: "set null",
     }),
     title: d.varchar({ length: 256 }).notNull().default("New thread"),
+    /**
+     * Durable build context for this thread: origin, research or codebase
+     * brief, plan, and the contract handed to the agent. See
+     * `server/build/context-pack.ts`.
+     *
+     * On the thread rather than the space: two threads can work the same
+     * machine toward different goals, and the goal is what this holds.
+     */
+    contextPack: d.jsonb().$type<Record<string, unknown>>(),
     createdByUserId: d
       .varchar({ length: 64 })
       .notNull()
@@ -560,12 +569,7 @@ export type RunStatus =
  * `workspaces` row.
  */
 export type MachineStatus =
-  | "provisioning"
-  | "running"
-  | "suspended"
-  | "stopping"
-  | "stopped"
-  | "error";
+  "provisioning" | "running" | "suspended" | "stopping" | "stopped" | "error";
 
 export type MachinePort = {
   port: number;
@@ -636,6 +640,94 @@ export const machineExecs = createTable(
   }),
   (t) => [index("machine_exec_machine_idx").on(t.machineId, t.createdAt)],
 );
+
+/* ------------------------------------------------------------------ */
+/* Connections, proposed edits, space index                            */
+/* ------------------------------------------------------------------ */
+
+export type ConnectionProvider = "github" | "railway";
+
+/**
+ * A third-party token the user connected.
+ *
+ * Held per user rather than per workspace: the token carries that person's
+ * access, and attributing a push or a deploy to whoever's credential ran it is
+ * the honest model. `accessToken` is encrypted at rest — see `server/crypto`.
+ */
+export const connections = createTable(
+  "connection",
+  (d) => ({
+    id: d.varchar({ length: 64 }).primaryKey().$defaultFn(id),
+    userId: d
+      .varchar({ length: 64 })
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    provider: d.varchar({ length: 32 }).$type<ConnectionProvider>().notNull(),
+    /** AES-256-GCM ciphertext, never the raw token. */
+    accessToken: d.text().notNull(),
+    /** Account id at the provider, for display and for detecting re-connects. */
+    externalId: d.varchar({ length: 128 }),
+    login: d.varchar({ length: 256 }),
+    scope: d.varchar({ length: 512 }),
+    createdAt: createdAt(),
+    updatedAt: d.timestamp({ withTimezone: true }),
+  }),
+  (t) => [uniqueIndex("connection_user_provider_idx").on(t.userId, t.provider)],
+);
+
+export type SpaceEditStatus = "pending" | "applied" | "rejected";
+
+/**
+ * A file write the agent proposed but has not made.
+ *
+ * Writes land here first so a person sees the diff before it touches the VM —
+ * the agent can still overwrite anything through `run_command`, but the edits
+ * it makes deliberately are reviewable.
+ */
+export const spaceEdits = createTable(
+  "space_edit",
+  (d) => ({
+    id: d.varchar({ length: 64 }).primaryKey().$defaultFn(id),
+    machineId: d
+      .varchar({ length: 64 })
+      .notNull()
+      .references(() => machines.id, { onDelete: "cascade" }),
+    threadId: d.varchar({ length: 64 }).references(() => threads.id, {
+      onDelete: "cascade",
+    }),
+    path: d.varchar({ length: 1024 }).notNull(),
+    /** File contents before the edit; null when the file is new. */
+    before: d.text(),
+    after: d.text().notNull(),
+    status: d
+      .varchar({ length: 16 })
+      .$type<SpaceEditStatus>()
+      .notNull()
+      .default("pending"),
+    proposedByUserId: d.varchar({ length: 64 }).references(() => users.id),
+    createdAt: createdAt(),
+    resolvedAt: d.timestamp({ withTimezone: true }),
+  }),
+  (t) => [
+    index("space_edit_thread_idx").on(t.threadId, t.createdAt),
+    index("space_edit_machine_status_idx").on(t.machineId, t.status),
+  ],
+);
+
+/**
+ * Cached file listing for a space, so the agent starts with a map instead of
+ * `ls`-ing its way around. Paths only — cheap to refresh, and the agent greps
+ * for content through `search_code`.
+ */
+export const machineIndexes = createTable("machine_index", (d) => ({
+  machineId: d
+    .varchar({ length: 64 })
+    .primaryKey()
+    .references(() => machines.id, { onDelete: "cascade" }),
+  files: d.jsonb().$type<string[]>().notNull().default([]),
+  truncated: d.boolean().notNull().default(false),
+  builtAt: d.timestamp({ withTimezone: true }).notNull(),
+}));
 
 export const runs = createTable(
   "run",
@@ -925,12 +1017,7 @@ export const deviceCodes = createTable(
 );
 
 export type DeviceKind =
-  | "cli"
-  | "browser"
-  | "web"
-  | "ios"
-  | "android"
-  | "desktop";
+  "cli" | "browser" | "web" | "ios" | "android" | "desktop";
 
 /**
  * A client the user signs in from — laptop, phone, Atlas Browser, CLI.
@@ -997,6 +1084,46 @@ export const cliTokens = createTable(
   ],
 );
 
+/**
+ * A credential for a deployed container — the workload plane's only way back in.
+ *
+ * Bound to a machine, never to a user session. It lives as an env var inside
+ * code the user wrote and an agent generated, so it is assumed to leak: the
+ * blast radius is deliberately "can post updates about this one project", not
+ * "can act as the person who deployed it".
+ */
+export const deployTokens = createTable(
+  "deploy_token",
+  (d) => ({
+    id: d.varchar({ length: 64 }).primaryKey().$defaultFn(id),
+    machineId: d
+      .varchar({ length: 64 })
+      .notNull()
+      .references(() => machines.id, { onDelete: "cascade" }),
+    workspaceId: d
+      .varchar({ length: 64 })
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    tokenHash: d.varchar({ length: 64 }).notNull(),
+    tokenPrefix: d.varchar({ length: 16 }).notNull(),
+    label: d.varchar({ length: 128 }).notNull().default("Railway deployment"),
+    /** The live URL the deployment last reported, if any. */
+    liveUrl: d.varchar({ length: 1024 }),
+    /** Bounded per token — this runs inside user code. */
+    notifyCount: d.integer().notNull().default(0),
+    /** Who deployed. Used for attribution in updates, not for authority. */
+    createdByUserId: d.varchar({ length: 64 }).references(() => users.id),
+    createdAt: createdAt(),
+    lastSeenAt: d.timestamp({ withTimezone: true }),
+    expiresAt: d.timestamp({ withTimezone: true }),
+    revokedAt: d.timestamp({ withTimezone: true }),
+  }),
+  (t) => [
+    uniqueIndex("deploy_token_hash_idx").on(t.tokenHash),
+    index("deploy_token_machine_idx").on(t.machineId),
+  ],
+);
+
 /* ------------------------------------------------------------------ */
 /* Relations (query helpers only)                                      */
 /* ------------------------------------------------------------------ */
@@ -1040,3 +1167,66 @@ export const messagesRelations = relations(messages, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+/* ------------------------------------------------------------------ */
+/* Space turns (queued agent work for a space-bound thread)            */
+/* ------------------------------------------------------------------ */
+
+export type SpaceTurnStatus = "queued" | "running" | "done" | "failed";
+
+/**
+ * One queued agent turn for a space thread.
+ *
+ * Separate from `runs` on purpose: a run is a specialist execution and carries
+ * a frozen specialist version, which a space turn has no concept of. Making
+ * those columns nullable to share the table would weaken an invariant every
+ * existing run consumer depends on, to save a table nobody has to read.
+ *
+ * The reply message row is created before the turn is queued, so progress and
+ * the final answer land in a row the thread already renders.
+ */
+export const spaceTurns = createTable(
+  "space_turn",
+  (d) => ({
+    id: d.varchar({ length: 64 }).primaryKey().$defaultFn(id),
+    threadId: d
+      .varchar({ length: 64 })
+      .notNull()
+      .references(() => threads.id, { onDelete: "cascade" }),
+    /** The assistant row this turn fills in — progress, then the answer. */
+    messageId: d
+      .varchar({ length: 64 })
+      .notNull()
+      .references(() => messages.id, { onDelete: "cascade" }),
+    machineId: d.varchar({ length: 64 }).notNull(),
+    userId: d
+      .varchar({ length: 64 })
+      .notNull()
+      .references(() => users.id),
+    userAsk: d.text().notNull(),
+    /** Files the user @-mentioned, pinned into the prompt. */
+    paths: d.jsonb().$type<string[]>(),
+    runKind: d.varchar({ length: 16 }),
+    status: d
+      .varchar({ length: 16 })
+      .$type<SpaceTurnStatus>()
+      .notNull()
+      .default("queued"),
+    error: d.text(),
+    /** Attempts so far; a turn that keeps killing its worker fails for good. */
+    attempts: d.integer().notNull().default(0),
+    createdAt: createdAt(),
+    claimedAt: d.timestamp({ withTimezone: true }),
+    finishedAt: d.timestamp({ withTimezone: true }),
+  }),
+  (t) => [
+    index("space_turn_claim_idx").on(t.status, t.createdAt),
+    /*
+     * One live turn per thread. Two quick posts would otherwise run two agents
+     * against the same VM at once, each proposing edits over the other.
+     */
+    uniqueIndex("space_turn_live_idx")
+      .on(t.threadId)
+      .where(sql`status in ('queued', 'running')`),
+  ],
+);
