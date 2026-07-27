@@ -60,6 +60,10 @@
   until real test keys exist. All non-session paths are tested.
 - **ANTHROPIC_API_KEY**: unset/empty → stub model. (The shell-exported key
   found locally had no credits; tests force the stub.)
+- **DEEPSEEK_API_KEY**: set → the coding agent runs on `deepseek-v4-flash`;
+  unset → it falls back to `claude-opus-5`. Prose/review is unaffected either
+  way. The local key currently returns 402 Insufficient Balance, so the var is
+  deliberately left unset in production until the account is funded.
 - Object storage (minio) is provisioned but artifacts currently store
   inline in Postgres; S3 upload lands when artifact sizes need it.
 - Runtime isolation is a local in-process adapter behind `executeRun`;

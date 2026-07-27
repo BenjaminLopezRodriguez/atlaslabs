@@ -15,11 +15,14 @@ import { applyEdit, rejectEdit } from "@/server/spaces/edits";
 const owner = `user_agent_${randomUUID().slice(0, 8)}`;
 const realFetch = globalThis.fetch;
 const realKey = process.env.ANTHROPIC_API_KEY;
+const realDeepseekKey = process.env.DEEPSEEK_API_KEY;
 
 void afterEach(() => {
   globalThis.fetch = realFetch;
   if (realKey === undefined) delete process.env.ANTHROPIC_API_KEY;
   else process.env.ANTHROPIC_API_KEY = realKey;
+  if (realDeepseekKey === undefined) delete process.env.DEEPSEEK_API_KEY;
+  else process.env.DEEPSEEK_API_KEY = realDeepseekKey;
 });
 
 void after(async () => {
@@ -48,6 +51,9 @@ async function seedMachine() {
 
 /** Queue of Anthropic responses, returned one per turn. */
 function stubModel(turns: { content: unknown[]; stop_reason: string }[]) {
+  // These assert the Anthropic wire shape, so pin the fallback provider even
+  // when a real DeepSeek key is present in the environment.
+  delete process.env.DEEPSEEK_API_KEY;
   process.env.ANTHROPIC_API_KEY = "test-key";
   const seen: unknown[] = [];
   let i = 0;
@@ -195,6 +201,7 @@ void test("an unwritable oversize file is refused, not truncated", async () => {
 void test("with no API key it degrades to the stub instead of failing", async () => {
   const machine = await seedMachine();
   delete process.env.ANTHROPIC_API_KEY;
+  delete process.env.DEEPSEEK_API_KEY;
   const res = await runSpaceAgent({ machine, prompt: "do a thing", userId: owner });
   assert.equal(res.steps.length, 0);
   assert.match(res.text, /stub model/);

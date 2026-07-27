@@ -1,7 +1,28 @@
 /** Prose/review: one shot, no tools. */
 const TEXT_MODEL = "claude-sonnet-5";
 /** Code generation: the tool-use loop that edits files in a space. */
-const CODE_MODEL = "claude-opus-5";
+const CODE_MODEL = "deepseek-v4-flash";
+/** Used for the tool loop when DEEPSEEK_API_KEY is unset. */
+const CODE_MODEL_FALLBACK = "claude-opus-5";
+
+type CodeProvider =
+  | { provider: "deepseek"; key: string; model: string }
+  | { provider: "anthropic"; key: string; model: string }
+  | null;
+
+/**
+ * Which provider runs the coding agent. DeepSeek V4 Flash is the default; a
+ * deployment that only has an Anthropic key keeps working on Opus rather than
+ * silently dropping to the stub.
+ */
+function codeProvider(): CodeProvider {
+  const deepseek = process.env.DEEPSEEK_API_KEY;
+  if (deepseek) return { provider: "deepseek", key: deepseek, model: CODE_MODEL };
+  const anthropic = process.env.ANTHROPIC_API_KEY;
+  if (anthropic)
+    return { provider: "anthropic", key: anthropic, model: CODE_MODEL_FALLBACK };
+  return null;
+}
 
 export type GenerateInput = {
   system: string;
@@ -99,11 +120,10 @@ export async function generateWithTools(input: {
   tools: ToolDef[];
   maxTokens?: number;
 }): Promise<ToolTurnResult> {
-  const key = process.env.ANTHROPIC_API_KEY;
-  const model = CODE_MODEL;
-  if (!key) {
+  const chosen = codeProvider();
+  if (!chosen) {
     return {
-      text: "[stub model — set ANTHROPIC_API_KEY for real inference] No changes were made.",
+      text: "[stub model — set DEEPSEEK_API_KEY for real inference] No changes were made.",
       calls: [],
       raw: [],
       stopReason: "end_turn",
@@ -111,6 +131,10 @@ export async function generateWithTools(input: {
       stub: true,
     };
   }
+  if (chosen.provider === "deepseek") {
+    return deepseekWithTools(chosen.key, chosen.model, input);
+  }
+  const { key, model } = chosen;
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -158,6 +182,167 @@ export async function generateWithTools(input: {
     model,
     stub: false,
   };
+}
+
+/* ------------------------------- deepseek ------------------------------- */
+
+/*
+ * DeepSeek speaks the OpenAI chat-completions shape, Atlas speaks Anthropic's
+ * content-block shape, and the agent loop echoes raw assistant blocks back as
+ * history. Rather than teach that loop two dialects, the translation lives
+ * here: blocks go out as OpenAI messages, the reply comes back as blocks.
+ */
+
+const DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions";
+
+type OpenAiToolCall = {
+  id: string;
+  type: "function";
+  function: { name: string; arguments: string };
+};
+
+type OpenAiMessage = {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string | null;
+  tool_calls?: OpenAiToolCall[];
+  tool_call_id?: string;
+};
+
+/** Anthropic content blocks, as the agent loop builds them. */
+type Block = {
+  type: string;
+  text?: string;
+  id?: string;
+  name?: string;
+  input?: Record<string, unknown>;
+  tool_use_id?: string;
+  content?: string;
+  is_error?: boolean;
+};
+
+function toOpenAiMessages(system: string, turns: Turn[]): OpenAiMessage[] {
+  const out: OpenAiMessage[] = [{ role: "system", content: system }];
+  for (const turn of turns) {
+    if (typeof turn.content === "string") {
+      out.push({ role: turn.role, content: turn.content });
+      continue;
+    }
+    const blocks = turn.content as Block[];
+    if (turn.role === "assistant") {
+      const text = blocks
+        .filter((b) => b.type === "text")
+        .map((b) => b.text ?? "")
+        .join("");
+      const calls = blocks
+        .filter((b) => b.type === "tool_use")
+        .map<OpenAiToolCall>((b) => ({
+          id: b.id!,
+          type: "function",
+          function: { name: b.name!, arguments: JSON.stringify(b.input ?? {}) },
+        }));
+      out.push({
+        role: "assistant",
+        content: text || null,
+        ...(calls.length ? { tool_calls: calls } : {}),
+      });
+      continue;
+    }
+    // A user turn carrying tool_result blocks becomes one `tool` message each.
+    for (const b of blocks) {
+      if (b.type !== "tool_result") continue;
+      out.push({
+        role: "tool",
+        tool_call_id: b.tool_use_id!,
+        content: b.is_error ? `ERROR: ${b.content ?? ""}` : (b.content ?? ""),
+      });
+    }
+  }
+  return out;
+}
+
+async function deepseekWithTools(
+  key: string,
+  model: string,
+  input: {
+    system: string;
+    messages: Turn[];
+    tools: ToolDef[];
+    maxTokens?: number;
+  },
+): Promise<ToolTurnResult> {
+  const res = await fetch(DEEPSEEK_URL, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${key}`,
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: input.maxTokens ?? 16000,
+      messages: toOpenAiMessages(input.system, input.messages),
+      tools: input.tools.map((t) => ({
+        type: "function",
+        function: {
+          name: t.name,
+          description: t.description,
+          parameters: t.input_schema,
+        },
+      })),
+      tool_choice: "auto",
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`model gateway: ${res.status} ${await res.text()}`);
+  }
+
+  const json = (await res.json()) as {
+    choices: {
+      message: { content: string | null; tool_calls?: OpenAiToolCall[] };
+      finish_reason: string;
+    }[];
+  };
+  const choice = json.choices[0];
+  if (!choice) throw new Error("model gateway: deepseek returned no choices");
+  const text = choice.message.content ?? "";
+  const calls: ToolCall[] = (choice.message.tool_calls ?? []).map((c) => ({
+    id: c.id,
+    name: c.function.name,
+    // Arguments arrive as a JSON string; a malformed one is the model's fault,
+    // and an empty object lets the tool reject it with a real message instead
+    // of blowing up the whole turn.
+    input: parseArgs(c.function.arguments),
+  }));
+
+  // Rebuilt as Anthropic blocks so the caller can echo `raw` back unchanged.
+  const raw: Block[] = [
+    ...(text ? [{ type: "text", text }] : []),
+    ...calls.map((c) => ({
+      type: "tool_use",
+      id: c.id,
+      name: c.name,
+      input: c.input,
+    })),
+  ];
+
+  return {
+    text,
+    calls,
+    raw,
+    stopReason: choice.finish_reason === "tool_calls" ? "tool_use" : "end_turn",
+    model,
+    stub: false,
+  };
+}
+
+function parseArgs(args: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(args) as unknown;
+    return parsed && typeof parsed === "object"
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
 }
 
 /** Deterministic offline output: structured review of provided context. */
