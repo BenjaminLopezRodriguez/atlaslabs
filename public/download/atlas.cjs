@@ -7369,6 +7369,7 @@ __export(cli_exports, {
   globToRegExp: () => globToRegExp,
   isSecretPath: () => isSecretPath,
   parseExecArgs: () => parseExecArgs,
+  parseInviteArgs: () => parseInviteArgs,
   parsePingQuestion: () => parsePingQuestion,
   remotePath: () => remotePath
 });
@@ -7530,10 +7531,18 @@ function fail(msg) {
   process.exit(1);
 }
 function openBrowser(url) {
-  const cmd = process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
+  const [cmd, args] = process.platform === "darwin" ? ["open", [url]] : process.platform === "win32" ? ["cmd", ["/c", "start", "", url]] : ["xdg-open", [url]];
+  const manually = () => console.log(`Open this URL manually: ${url}`);
   try {
-    (0, import_node_child_process.spawn)(cmd, [url], { stdio: "ignore", detached: true }).unref();
+    const child = (0, import_node_child_process.spawn)(cmd, args, {
+      stdio: "ignore",
+      detached: true,
+      windowsHide: true
+    });
+    child.on("error", manually);
+    child.unref();
   } catch {
+    manually();
   }
 }
 var ATLAS_YAML = "atlas.yaml";
@@ -7737,22 +7746,46 @@ async function cmdGroup(sub, rest) {
 }
 async function cmdMember(sub, rest) {
   if (sub !== "invite") fail("Usage: atlas member invite <email> [role]");
-  const email = rest[0];
-  const role = rest[1] ?? "operator";
+  await cmdInvite(rest[0], rest.slice(1));
+}
+function parseInviteArgs(rest) {
+  const flags = {};
+  for (const name of ["--role", "--machine"]) {
+    const i = rest.indexOf(name);
+    if (i === -1) continue;
+    const value = rest[i + 1];
+    if (!value || value.startsWith("--")) return { error: `${name} needs a value.` };
+    flags[name] = value;
+  }
+  const positionalRole = rest[0]?.startsWith("--") ? void 0 : rest[0];
+  return {
+    role: flags["--role"] ?? positionalRole ?? "operator",
+    machineSlug: flags["--machine"]
+  };
+}
+async function cmdInvite(email, rest) {
+  const usage = "Usage: atlas invite <email> [--role owner|builder|operator|viewer] [--machine <slug>]";
+  if (!email || email.startsWith("--")) fail(usage);
+  const parsed = parseInviteArgs(rest);
+  if ("error" in parsed) fail(parsed.error);
+  const { role, machineSlug } = parsed;
   const slug = readConfig().currentGroup ?? readAtlasYaml()?.group;
-  if (!email)
-    fail("Usage: atlas member invite <email> [owner|builder|operator|viewer]");
   if (!slug) fail("No current group. `atlas group use <slug>` first.");
   const groupId = await resolveGroupId(slug);
   const inv = await api("POST", "/api/v1/cli/invitations", {
     groupId,
     email,
-    role
+    role,
+    machineSlug
   });
+  console.log(`Invited ${email} to ${slug} as ${role}.`);
+  if (inv.machine) {
+    console.log(`Machine: ${inv.machine.slug} (${inv.machine.id})`);
+  }
   console.log(
-    `Invited ${email} as ${role}.
-Accept link (share manually): ${baseUrl()}/invite?token=${inv.token}`
+    inv.notified ? `Emailed to ${email}.` : `Not emailed${inv.notifyError ? ` (${inv.notifyError})` : ""} \u2014 send this link:`
   );
+  console.log(inv.acceptUrl);
 }
 function cmdInit() {
   if (fs.existsSync(ATLAS_YAML)) fail(`${ATLAS_YAML} already exists.`);
@@ -8350,7 +8383,7 @@ var HELP = `atlas \u2014 Atlas Labs CLI
 
   atlas login | logout | whoami
   atlas group list | create <name> | use <slug>
-  atlas member invite <email> [role]
+  atlas invite <email> [--role <role>] [--machine <slug>]
   atlas init | link | status | open
   atlas source add <path> | list | sync [--yes] | remove <id>
   atlas specialist create "<prompt>" | list | inspect <slug>
@@ -8380,6 +8413,10 @@ async function main() {
       return cmdGroup(sub, rest);
     case "member":
       return cmdMember(sub, rest);
+    case "invite":
+    case "invite_to_space":
+    case "invite-to-space":
+      return cmdInvite(sub, rest);
     case "init":
       return cmdInit();
     case "link":
@@ -8431,6 +8468,7 @@ if (isDirectRun) {
   globToRegExp,
   isSecretPath,
   parseExecArgs,
+  parseInviteArgs,
   parsePingQuestion,
   remotePath
 });

@@ -1,6 +1,6 @@
 {
   "name": "@atlaslabsnpm/cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Atlas CLI - drive Atlas machines: cloud VMs you and your agents work in together.",
   "type": "module",
   "bin": {

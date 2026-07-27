@@ -9,6 +9,7 @@ import {
   globToRegExp,
   isSecretPath,
   parseExecArgs,
+  parseInviteArgs,
   parsePingQuestion,
   remotePath,
 } from "./cli.js";
@@ -94,4 +95,27 @@ void test("parsePingQuestion keeps the question when flags are absent", () => {
     "Pick one",
   );
   assert.equal(parsePingQuestion([]), "");
+});
+
+void test("parseInviteArgs", () => {
+  assert.deepEqual(parseInviteArgs([]), {
+    role: "operator",
+    machineSlug: undefined,
+  });
+  // the old positional form still works
+  assert.deepEqual(parseInviteArgs(["builder"]), {
+    role: "builder",
+    machineSlug: undefined,
+  });
+  assert.deepEqual(parseInviteArgs(["--role", "owner", "--machine", "api"]), {
+    role: "owner",
+    machineSlug: "api",
+  });
+  // a flag must not swallow the next flag as its value
+  assert.deepEqual(parseInviteArgs(["--machine", "--role", "owner"]), {
+    error: "--machine needs a value.",
+  });
+  assert.deepEqual(parseInviteArgs(["--role"]), {
+    error: "--role needs a value.",
+  });
 });

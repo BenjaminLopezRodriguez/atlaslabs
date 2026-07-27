@@ -1,4 +1,5 @@
 import type { PingChannel } from "@/server/db/schema";
+import { escapeHtml, isEmailConfigured, sendEmail } from "@/server/email";
 
 /**
  * How a ping reaches the human.
@@ -43,64 +44,21 @@ const linkOnlyNotifier: Notifier = {
   },
 };
 
-/**
- * Email via Resend's REST API.
- *
- * Called directly with `fetch` rather than through the SDK: one documented
- * endpoint, no dependency to keep current.
- *
- * The `from` address must be on a domain verified in Resend, otherwise every
- * send is rejected. `ATLAS_PING_FROM` overrides the default.
- */
+/** Email via Resend. The transport itself lives in `@/server/email`. */
 const emailNotifier: Notifier = {
   channel: "email",
   async send(input) {
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-      return { channel: "email", delivered: false, error: "RESEND_API_KEY is not set" };
-    }
-
-    const from = process.env.ATLAS_PING_FROM ?? "Atlas <atlas@atlaslabs.id>";
     const subject = input.context
       ? `[${input.machineSlug}] ${input.context}`
       : `A question about ${input.machineSlug}`;
 
-    try {
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          from,
-          to: [input.to],
-          subject,
-          text: plainBody(input),
-          html: htmlBody(input),
-        }),
-        // A hung provider must not hold the ping request open.
-        signal: AbortSignal.timeout(15_000),
-      });
-
-      if (!res.ok) {
-        // Resend returns { name, message } on error. Never echo the key.
-        const detail = await res.text().catch(() => "");
-        return {
-          channel: "email",
-          delivered: false,
-          error: `resend ${res.status}: ${detail.slice(0, 300)}`,
-        };
-      }
-
-      return { channel: "email", delivered: true };
-    } catch (err) {
-      return {
-        channel: "email",
-        delivered: false,
-        error: err instanceof Error ? err.message : String(err),
-      };
-    }
+    const { delivered, error } = await sendEmail({
+      to: input.to,
+      subject,
+      text: plainBody(input),
+      html: htmlBody(input),
+    });
+    return { channel: "email", delivered, error };
   },
 };
 
@@ -139,22 +97,10 @@ function htmlBody(input: NotifyInput): string {
 </html>`;
 }
 
-/** The question is user-supplied and goes into HTML — escape it. */
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 export function getNotifier(): Notifier {
   // SMS is deliberately absent: it is not available through the marketplace,
   // so wiring it means a direct provider account.
   return isEmailConfigured() ? emailNotifier : linkOnlyNotifier;
 }
 
-export function isEmailConfigured(): boolean {
-  return Boolean(process.env.RESEND_API_KEY);
-}
+export { isEmailConfigured };

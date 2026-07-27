@@ -7,8 +7,8 @@
 # No package manager, no dependencies beyond Node 20+.
 set -eu
 
-VERSION="0.1.0"
-SHA256="7b3389ebe535928c53fa6ac3bb4757029bc3cc807f450894cd937f5f0854a6de"
+VERSION="0.2.0"
+SHA256="5c570ecc50cf0db3bf78e4889a25da4c91b742093abeec115d2f77f7ae09766b"
 BASE_URL="${ATLAS_INSTALL_BASE:-https://www.atlaslabs.id}"
 SRC="${BASE_URL}/download/atlas.cjs"
 

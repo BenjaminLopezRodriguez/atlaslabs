@@ -214,17 +214,34 @@ function fail(msg: string): never {
   process.exit(1);
 }
 
+/*
+ * Best-effort browser launch. Never fatal: a failure here costs convenience,
+ * not the flow the caller is in the middle of.
+ *
+ * `start` is a cmd.exe builtin, not an executable, so it can only be reached
+ * through `cmd /c`. The empty string after it is the window title — `start`
+ * treats a lone quoted argument as the title, so without it a quoted URL opens
+ * a console window instead of the browser.
+ */
 function openBrowser(url: string) {
-  const cmd =
+  const [cmd, args] =
     process.platform === "darwin"
-      ? "open"
+      ? ["open", [url]]
       : process.platform === "win32"
-        ? "start"
-        : "xdg-open";
+        ? ["cmd", ["/c", "start", "", url]]
+        : ["xdg-open", [url]];
+  const manually = () => console.log(`Open this URL manually: ${url}`);
   try {
-    spawn(cmd, [url], { stdio: "ignore", detached: true }).unref();
+    const child = spawn(cmd as string, args as string[], {
+      stdio: "ignore",
+      detached: true,
+      windowsHide: true,
+    });
+    // spawn reports a missing binary asynchronously — try/catch never sees it.
+    child.on("error", manually);
+    child.unref();
   } catch {
-    /* user can open manually */
+    manually();
   }
 }
 
@@ -475,21 +492,76 @@ async function cmdGroup(sub: string | undefined, rest: string[]) {
 
 async function cmdMember(sub: string | undefined, rest: string[]) {
   if (sub !== "invite") fail("Usage: atlas member invite <email> [role]");
-  const email = rest[0];
-  const role = (rest[1] ?? "operator") as string;
+  await cmdInvite(rest[0], rest.slice(1));
+}
+
+/**
+ * Everything after the email in `atlas invite`.
+ *
+ * A flag whose value is missing or is itself a flag is an error rather than a
+ * silent default: `--machine --role owner` must not invite someone to a machine
+ * named "--role".
+ */
+export function parseInviteArgs(
+  rest: string[],
+): { role: string; machineSlug?: string } | { error: string } {
+  const flags: Record<string, string> = {};
+  for (const name of ["--role", "--machine"]) {
+    const i = rest.indexOf(name);
+    if (i === -1) continue;
+    const value = rest[i + 1];
+    if (!value || value.startsWith("--")) return { error: `${name} needs a value.` };
+    flags[name] = value;
+  }
+  // `atlas member invite <email> <role>` predates the flags; keep it working.
+  const positionalRole = rest[0]?.startsWith("--") ? undefined : rest[0];
+  return {
+    role: flags["--role"] ?? positionalRole ?? "operator",
+    machineSlug: flags["--machine"],
+  };
+}
+
+/**
+ * Pull a human into the current group and email them the accept link plus the
+ * commands that follow it. `--machine <slug>` names the machine they are being
+ * brought in for, so the invite arrives with its id rather than "ask Ben".
+ */
+async function cmdInvite(email: string | undefined, rest: string[]) {
+  const usage =
+    "Usage: atlas invite <email> [--role owner|builder|operator|viewer] [--machine <slug>]";
+  if (!email || email.startsWith("--")) fail(usage);
+
+  const parsed = parseInviteArgs(rest);
+  if ("error" in parsed) fail(parsed.error);
+  const { role, machineSlug } = parsed;
+
   const slug = readConfig().currentGroup ?? readAtlasYaml()?.group;
-  if (!email)
-    fail("Usage: atlas member invite <email> [owner|builder|operator|viewer]");
   if (!slug) fail("No current group. `atlas group use <slug>` first.");
   const groupId = await resolveGroupId(slug);
-  const inv = await api("POST", "/api/v1/cli/invitations", {
+
+  const inv = (await api("POST", "/api/v1/cli/invitations", {
     groupId,
     email,
     role,
-  });
+    machineSlug,
+  })) as {
+    token: string;
+    acceptUrl: string;
+    machine: { id: string; slug: string } | null;
+    notified: boolean;
+    notifyError: string | null;
+  };
+
+  console.log(`Invited ${email} to ${slug} as ${role}.`);
+  if (inv.machine) {
+    console.log(`Machine: ${inv.machine.slug} (${inv.machine.id})`);
+  }
   console.log(
-    `Invited ${email} as ${role}.\nAccept link (share manually): ${baseUrl()}/invite?token=${inv.token}`,
+    inv.notified
+      ? `Emailed to ${email}.`
+      : `Not emailed${inv.notifyError ? ` (${inv.notifyError})` : ""} — send this link:`,
   );
+  console.log(inv.acceptUrl);
 }
 
 function cmdInit() {
@@ -1226,7 +1298,7 @@ const HELP = `atlas — Atlas Labs CLI
 
   atlas login | logout | whoami
   atlas group list | create <name> | use <slug>
-  atlas member invite <email> [role]
+  atlas invite <email> [--role <role>] [--machine <slug>]
   atlas init | link | status | open
   atlas source add <path> | list | sync [--yes] | remove <id>
   atlas specialist create "<prompt>" | list | inspect <slug>
@@ -1257,6 +1329,10 @@ async function main() {
       return cmdGroup(sub, rest);
     case "member":
       return cmdMember(sub, rest);
+    case "invite":
+    case "invite_to_space":
+    case "invite-to-space":
+      return cmdInvite(sub, rest);
     case "init":
       return cmdInit();
     case "link":
