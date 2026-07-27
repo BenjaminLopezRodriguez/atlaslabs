@@ -1,16 +1,21 @@
 {
-  "name": "@atlaslabs/cli",
+  "name": "@atlaslabsnpm/cli",
   "version": "0.1.0",
-  "description": "Atlas CLI — connect local work to Atlas specialist workspaces",
+  "description": "Atlas CLI - drive Atlas machines: cloud VMs you and your agents work in together.",
   "type": "module",
   "bin": {
     "atlas": "dist/cli.js"
   },
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json && node -e \"require('fs').chmodSync('dist/cli.js',0o755)\"",
     "dev": "tsx src/cli.ts",
-    "test": "tsx --test src/cli.test.ts"
+    "test": "tsx --test src/cli.test.ts",
+    "bundle": "esbuild src/cli.ts --bundle --platform=node --target=node20 --format=cjs --outfile=dist/atlas.cjs && node -e \"require('fs').chmodSync('dist/atlas.cjs',0o755)\"",
+    "prepublishOnly": "npm run build && npm run bundle"
   },
   "engines": {
     "node": ">=20"
@@ -20,7 +25,29 @@
   },
   "devDependencies": {
     "@types/node": "^20.14.10",
+    "esbuild": "^0.28.1",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2"
+  },
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BenjaminLopezRodriguez/atlaslabs.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://www.atlaslabs.id/docs/cli",
+  "bugs": {
+    "url": "https://github.com/BenjaminLopezRodriguez/atlaslabs/issues"
+  },
+  "keywords": [
+    "atlas",
+    "cli",
+    "vm",
+    "sandbox",
+    "agents",
+    "devtools"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }
