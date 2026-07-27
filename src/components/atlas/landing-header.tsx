@@ -1,7 +1,9 @@
 import { APP_LOGO_AND_NAME } from "@/app/_constants/constants";
 import { Button } from "@/components/ui/button";
 import { ArrowDown } from "lucide-react";
-import { signOut, withAuth } from "@workos-inc/authkit-nextjs";
+import { withAuth } from "@workos-inc/authkit-nextjs";
+
+import { UserMenu } from "@/components/atlas/user-menu";
 
 export async function LandingHeader() {
   const { user } = await withAuth();
@@ -15,18 +17,15 @@ export async function LandingHeader() {
 
         <div className="flex items-center gap-3">
           {user ? (
-            /* Sign-out clears the session, so it is a POST: a GET would let a
-            <Link> prefetch or an <img src> log the user out. */
-            <form
-              action={async () => {
-                "use server";
-                await signOut({ returnTo: "/" });
+            <UserMenu
+              user={{
+                name:
+                  [user.firstName, user.lastName].filter(Boolean).join(" ") ||
+                  null,
+                email: user.email,
+                image: user.profilePictureUrl ?? null,
               }}
-            >
-              <Button type="submit" variant="ghost" className="rounded-full">
-                Sign out
-              </Button>
-            </form>
+            />
           ) : (
             <Button
               variant="ghost"
