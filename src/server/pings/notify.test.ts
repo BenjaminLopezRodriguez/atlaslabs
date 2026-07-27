@@ -15,6 +15,34 @@ afterEach(() => {
   delete process.env.ATLAS_PING_FROM;
 });
 
+/** What the notifier actually sends. It always sends a JSON string body. */
+type SentRequest = {
+  url: string;
+  auth: string;
+  body: Record<string, unknown>;
+};
+
+/**
+ * Replace fetch with a stub and record what the notifier sent.
+ *
+ * The cast is confined here so call sites stay plain. Defaults are definite
+ * rather than null so the assertions need no narrowing.
+ */
+function stubFetch(respond: () => Promise<Response>): { last: SentRequest } {
+  const sent: SentRequest = { url: "", auth: "", body: {} };
+  const stub = (url: string, init: { body: string; headers: Record<string, string> }) => {
+    sent.url = url;
+    sent.auth = init.headers.authorization ?? "";
+    sent.body = JSON.parse(init.body) as Record<string, unknown>;
+    return respond();
+  };
+  globalThis.fetch = stub as unknown as typeof fetch;
+  return { last: sent };
+}
+
+const ok = (payload: unknown = { id: "email_1" }) =>
+  Promise.resolve(new Response(JSON.stringify(payload), { status: 200 }));
+
 const input = {
   to: "someone@example.com",
   question: "Postgres or SQLite?",
@@ -36,42 +64,31 @@ void test("falls back to link-only when no key is configured", async () => {
 
 void test("sends through Resend when configured", async () => {
   process.env.RESEND_API_KEY = "re_test_key";
-  let captured: { url: string; body: Record<string, unknown>; auth: string } | null =
-    null;
-
-  globalThis.fetch = ((url: string, init: RequestInit) => {
-    captured = {
-      url: String(url),
-      body: JSON.parse(String(init.body)) as Record<string, unknown>,
-      auth: String((init.headers as Record<string, string>).authorization),
-    };
-    return Promise.resolve(
-      new Response(JSON.stringify({ id: "email_1" }), { status: 200 }),
-    );
-  }) as unknown as typeof fetch;
+  const captured = stubFetch(() => ok());
 
   const n = getNotifier();
   assert.equal(n.channel, "email");
   const res = await n.send(input);
 
   assert.equal(res.delivered, true);
-  assert.equal(captured!.url, "https://api.resend.com/emails");
-  assert.equal(captured!.auth, "Bearer re_test_key");
-  assert.deepEqual(captured!.body.to, ["someone@example.com"]);
+  assert.equal(captured.last.url, "https://api.resend.com/emails");
+  assert.equal(captured.last.auth, "Bearer re_test_key");
+  assert.deepEqual(captured.last.body.to, ["someone@example.com"]);
   // both parts carry the reply link — some clients strip HTML
-  assert.match(String(captured!.body.text), /atlas_ping_abc/);
-  assert.match(String(captured!.body.html), /atlas_ping_abc/);
-  assert.match(String(captured!.body.subject), /my-app/);
+  assert.match(String(captured.last.body.text), /atlas_ping_abc/);
+  assert.match(String(captured.last.body.html), /atlas_ping_abc/);
+  assert.match(String(captured.last.body.subject), /my-app/);
 });
 
 void test("a provider error degrades instead of throwing", async () => {
   process.env.RESEND_API_KEY = "re_test_key";
-  globalThis.fetch = (() =>
+  stubFetch(() =>
     Promise.resolve(
       new Response(JSON.stringify({ message: "domain not verified" }), {
         status: 403,
       }),
-    )) as unknown as typeof fetch;
+    ),
+  );
 
   const res = await getNotifier().send(input);
   assert.equal(res.delivered, false);
@@ -83,8 +100,7 @@ void test("a provider error degrades instead of throwing", async () => {
 
 void test("a network failure degrades instead of throwing", async () => {
   process.env.RESEND_API_KEY = "re_test_key";
-  globalThis.fetch = (() =>
-    Promise.reject(new Error("connect ECONNREFUSED"))) as unknown as typeof fetch;
+  stubFetch(() => Promise.reject(new Error("connect ECONNREFUSED")));
 
   const res = await getNotifier().send(input);
   assert.equal(res.delivered, false);
@@ -93,19 +109,14 @@ void test("a network failure degrades instead of throwing", async () => {
 
 void test("the question is escaped into the HTML body", async () => {
   process.env.RESEND_API_KEY = "re_test_key";
-  let html = "";
-  globalThis.fetch = ((_url: string, init: RequestInit) => {
-    html = String(
-      (JSON.parse(String(init.body)) as Record<string, unknown>).html,
-    );
-    return Promise.resolve(new Response("{}", { status: 200 }));
-  }) as unknown as typeof fetch;
+  const captured = stubFetch(() => ok({}));
 
   await getNotifier().send({
     ...input,
     question: `<img src=x onerror="alert(1)"> & "quoted"`,
   });
 
+  const html = String(captured.last.body.html);
   assert.doesNotMatch(html, /<img src=x/);
   assert.match(html, /&lt;img src=x/);
   assert.match(html, /&amp;/);
