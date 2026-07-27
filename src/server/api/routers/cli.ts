@@ -41,6 +41,7 @@ export const cliRouter = createTRPCRouter({
       await audit({
         action: "cli.device.approve",
         userId: ctx.user.id,
+        deviceId: ctx.user.deviceId,
         detail: { type: "device_code", id: dc.id },
       });
       return { ok: true };
@@ -87,6 +88,7 @@ export const cliRouter = createTRPCRouter({
       await audit({
         action: "cli.token.revoke",
         userId: ctx.user.id,
+        deviceId: ctx.user.deviceId,
         detail: { type: "cli_token", id: input.tokenId },
       });
       return { ok: true };

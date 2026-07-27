@@ -14,6 +14,8 @@ export default authkitMiddleware({
       "/sign-up",
       "/auth/:path*",
       "/api/trpc/:path*",
+      "/docs/:path*",
+      "/ping/:path*",
     ],
   },
 });
@@ -25,6 +27,8 @@ export const config = {
     "/sign-up",
     "/auth/:path*",
     "/api/trpc/:path*",
+    "/docs/:path*",
+    "/ping/:path*",
     "/app/:path*",
     "/new",
     "/device",

@@ -61,6 +61,7 @@ export const correctionRouter = createTRPCRouter({
         action: "correction.create",
         groupId: workspace.groupId,
         userId: ctx.user.id,
+        deviceId: ctx.user.deviceId,
         detail: { type: "correction", id: row!.id, kind: input.kind },
       });
       return row;
@@ -185,6 +186,7 @@ export const correctionRouter = createTRPCRouter({
         action: "correction.promote",
         groupId: workspace.groupId,
         userId: ctx.user.id,
+        deviceId: ctx.user.deviceId,
         detail: { type: "correction", id: corr.id, to: input.to, ...detail },
       });
       return { ok: true, ...detail };

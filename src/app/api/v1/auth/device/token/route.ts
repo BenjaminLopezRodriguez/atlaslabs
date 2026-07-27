@@ -5,6 +5,7 @@ import { audit } from "@/server/audit";
 import { mintToken, sha256 } from "@/server/cli-auth";
 import { db } from "@/server/db";
 import { cliTokens, deviceCodes } from "@/server/db/schema";
+import { resolveDevice } from "@/server/devices/store";
 
 const bodySchema = z.object({ device_code: z.string() });
 
@@ -32,10 +33,30 @@ export async function POST(req: Request) {
     return Response.json({ error: "authorization_pending" }, { status: 400 });
   }
 
+  /*
+   * The device id is minted here, server-side, from hints captured at flow
+   * start. It is never read from a request header or body — see
+   * docs/superpowers/specs/2026-07-26-atlas-vm-layer-design.md.
+   */
+  const device = await resolveDevice({
+    userId: dc.approvedUserId,
+    installationId: dc.installationId,
+    kind: dc.deviceKind ?? "cli",
+    label: dc.deviceLabel,
+    platform: dc.devicePlatform,
+    appVersion: dc.deviceAppVersion,
+  });
+
   const { secret, hash, prefix } = mintToken("atlas_pat");
   const [tok] = await db
     .insert(cliTokens)
-    .values({ userId: dc.approvedUserId, tokenHash: hash, tokenPrefix: prefix })
+    .values({
+      userId: dc.approvedUserId,
+      tokenHash: hash,
+      tokenPrefix: prefix,
+      deviceId: device.id,
+      label: device.label,
+    })
     .returning();
   await db
     .update(deviceCodes)
@@ -44,7 +65,8 @@ export async function POST(req: Request) {
   await audit({
     action: "cli.token.mint",
     userId: dc.approvedUserId,
-    detail: { type: "cli_token", id: tok!.id },
+    deviceId: device.id,
+    detail: { type: "cli_token", id: tok!.id, deviceId: device.id },
   });
 
   return Response.json({ access_token: secret, token_type: "bearer" });

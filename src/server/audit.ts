@@ -11,6 +11,8 @@ export async function audit(event: {
   groupId?: string | null;
   userId?: string | null;
   serviceKeyId?: string | null;
+  /** Which device acted. Absent for service-key and system-initiated actions. */
+  deviceId?: string | null;
 }) {
   try {
     await db.insert(auditEvents).values({
@@ -19,6 +21,7 @@ export async function audit(event: {
       groupId: event.groupId ?? null,
       userId: event.userId ?? null,
       serviceKeyId: event.serviceKeyId ?? null,
+      deviceId: event.deviceId ?? null,
     });
   } catch (err) {
     console.error("[audit] failed to record", event.action, err);

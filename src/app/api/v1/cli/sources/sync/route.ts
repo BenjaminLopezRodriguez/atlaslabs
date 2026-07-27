@@ -158,6 +158,7 @@ export async function POST(req: Request) {
           totalBytes,
           contentHash,
           syncedByUserId: user.id,
+          syncedByDeviceId: user.deviceId,
         })
         .returning();
       await tx.insert(sourceFiles).values(
@@ -184,6 +185,7 @@ export async function POST(req: Request) {
       action: "source.sync",
       groupId: workspace.groupId,
       userId: user.id,
+      deviceId: user.deviceId,
       detail: {
         type: "source",
         id: result.source.id,

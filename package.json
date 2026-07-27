@@ -19,7 +19,7 @@
     "preview": "next build && next start",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node --env-file=.env --import tsx --test --test-force-exit 'src/**/*.test.ts'",
+    "test": "ATLAS_MACHINE_DRIVER=mock node --env-file=.env --import tsx --test --test-force-exit 'src/**/*.test.ts'",
     "worker": "node --env-file=.env --import tsx scripts/worker.ts",
     "db:seed": "node --env-file=.env --import tsx scripts/seed.ts"
   },

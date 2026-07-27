@@ -43,6 +43,7 @@ export async function POST(req: Request) {
       action: "evaluation.run",
       groupId: workspace.groupId,
       userId: user.id,
+      deviceId: user.deviceId,
       detail: {
         type: "evaluation_run",
         id: result.id,

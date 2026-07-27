@@ -278,6 +278,13 @@ export const sourceVersions = createTable(
       .varchar({ length: 64 })
       .notNull()
       .references(() => users.id),
+    /**
+     * Which device uploaded this version. Provenance belongs on the artifact
+     * here, not only on an audit event — "where did this content come from" is
+     * a property of the version itself. This is the ONLY domain table that gets
+     * a device column; everything else attributes through auditEvents.
+     */
+    syncedByDeviceId: d.varchar({ length: 64 }),
     createdAt: createdAt(),
   }),
   (t) => [uniqueIndex("source_version_idx").on(t.sourceId, t.version)],
@@ -530,6 +537,90 @@ export type RunStatus =
   | "failed"
   | "cancelled";
 
+/* ------------------------------------------------------------------ */
+/* Machines (persistent workspace VMs)                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A remote VM. NOT a `device` (that is a client the user signs in from).
+ *
+ * Atlas Browser's user-facing "workspace" is one of these: `atlas://workspace/<slug>`
+ * resolves to the machine whose slug matches, within the caller's tenancy
+ * `workspaces` row.
+ */
+export type MachineStatus =
+  | "provisioning"
+  | "running"
+  | "suspended"
+  | "stopping"
+  | "stopped"
+  | "error";
+
+export type MachinePort = {
+  port: number;
+  label?: string;
+  /** Reachable only from inside the VM until port sharing lands. */
+  internalUrl?: string;
+};
+
+export const machines = createTable(
+  "machine",
+  (d) => ({
+    id: d.varchar({ length: 64 }).primaryKey().$defaultFn(id),
+    workspaceId: d
+      .varchar({ length: 64 })
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    /** DNS label, unique within the tenancy workspace. */
+    slug: d.varchar({ length: 63 }).notNull(),
+    name: d.varchar({ length: 256 }),
+    templateId: d.varchar({ length: 64 }),
+    status: d
+      .varchar({ length: 16 })
+      .$type<MachineStatus>()
+      .notNull()
+      .default("provisioning"),
+    /** Driver kind + opaque handle. `mock` today; a real driver later. */
+    driver: d.varchar({ length: 32 }).notNull().default("mock"),
+    handle: d.varchar({ length: 256 }),
+    region: d.varchar({ length: 32 }),
+    ports: d.jsonb().$type<MachinePort[]>().notNull().default([]),
+    createdByUserId: d.varchar({ length: 64 }).references(() => users.id),
+    /** Which device provisioned it — provenance, same rationale as sourceVersions. */
+    createdByDeviceId: d.varchar({ length: 64 }),
+    createdAt: createdAt(),
+    lastSeenAt: d.timestamp({ withTimezone: true }),
+    suspendedAt: d.timestamp({ withTimezone: true }),
+    terminatedAt: d.timestamp({ withTimezone: true }),
+  }),
+  (t) => [
+    uniqueIndex("machine_slug_idx").on(t.workspaceId, t.slug),
+    index("machine_workspace_idx").on(t.workspaceId),
+  ],
+);
+
+/** One row per `exec`. Output is truncated — see MAX_OUTPUT_BYTES in the store. */
+export const machineExecs = createTable(
+  "machine_exec",
+  (d) => ({
+    id: d.varchar({ length: 64 }).primaryKey().$defaultFn(id),
+    machineId: d
+      .varchar({ length: 64 })
+      .notNull()
+      .references(() => machines.id, { onDelete: "cascade" }),
+    cmd: d.text().notNull(),
+    cwd: d.varchar({ length: 512 }),
+    exitCode: d.integer(),
+    stdout: d.text(),
+    stderr: d.text(),
+    durationMs: d.integer(),
+    ranByUserId: d.varchar({ length: 64 }).references(() => users.id),
+    ranByDeviceId: d.varchar({ length: 64 }),
+    createdAt: createdAt(),
+  }),
+  (t) => [index("machine_exec_machine_idx").on(t.machineId, t.createdAt)],
+);
+
 export const runs = createTable(
   "run",
   (d) => ({
@@ -704,6 +795,62 @@ export const apiInvocations = createTable(
 );
 
 /* ------------------------------------------------------------------ */
+/* Pings (the baton: agent -> human -> agent)                          */
+/* ------------------------------------------------------------------ */
+
+export type PingStatus = "pending" | "answered" | "expired" | "cancelled";
+export type PingChannel = "email" | "sms" | "link";
+
+/**
+ * A question an agent (or anyone) asked the workspace owner, and their reply.
+ *
+ * This is an append-only conversation log scoped to a machine: the agent writes
+ * a question, the human answers from wherever they are, and the whole thread
+ * stays readable so a later agent can catch up on decisions it did not witness.
+ */
+export const pings = createTable(
+  "ping",
+  (d) => ({
+    id: d.varchar({ length: 64 }).primaryKey().$defaultFn(id),
+    machineId: d
+      .varchar({ length: 64 })
+      .notNull()
+      .references(() => machines.id, { onDelete: "cascade" }),
+    /** Denormalised so the log survives a machine being torn down. */
+    workspaceId: d.varchar({ length: 64 }).notNull(),
+    question: d.text().notNull(),
+    /** Free-form label so an agent can group related pings. */
+    context: d.varchar({ length: 256 }),
+    status: d
+      .varchar({ length: 16 })
+      .$type<PingStatus>()
+      .notNull()
+      .default("pending"),
+    answer: d.text(),
+    channel: d.varchar({ length: 16 }).$type<PingChannel>().notNull(),
+    /**
+     * sha256 of the single-use reply token. The raw token only ever exists in
+     * the notification link — never at rest, same rule as CLI tokens.
+     */
+    replyTokenHash: d.varchar({ length: 64 }).notNull(),
+    /** Who asked. */
+    askedByUserId: d.varchar({ length: 64 }).references(() => users.id),
+    askedByDeviceId: d.varchar({ length: 64 }),
+    /** Who answered — may differ from who was asked in a shared workspace. */
+    answeredByUserId: d.varchar({ length: 64 }),
+    notifiedAt: d.timestamp({ withTimezone: true }),
+    notifyError: d.varchar({ length: 512 }),
+    expiresAt: d.timestamp({ withTimezone: true }).notNull(),
+    answeredAt: d.timestamp({ withTimezone: true }),
+    createdAt: createdAt(),
+  }),
+  (t) => [
+    uniqueIndex("ping_reply_token_idx").on(t.replyTokenHash),
+    index("ping_machine_idx").on(t.machineId, t.createdAt),
+  ],
+);
+
+/* ------------------------------------------------------------------ */
 /* Audit                                                               */
 /* ------------------------------------------------------------------ */
 
@@ -715,6 +862,8 @@ export const auditEvents = createTable(
     groupId: d.varchar({ length: 64 }),
     userId: d.varchar({ length: 64 }),
     serviceKeyId: d.varchar({ length: 64 }),
+    /** Which device acted. Not an FK — audit rows outlive everything. */
+    deviceId: d.varchar({ length: 64 }),
     action: d.varchar({ length: 64 }).notNull(),
     /** Entity acted on: {type, id} plus action-specific detail. */
     detail: d.jsonb().$type<Record<string, unknown>>().notNull(),
@@ -742,6 +891,12 @@ export const deviceCodes = createTable(
     deviceCodeHash: d.varchar({ length: 64 }).notNull(),
     approvedUserId: d.varchar({ length: 64 }),
     mintedTokenId: d.varchar({ length: 64 }),
+    /** Client hints captured at flow start, applied when the token is minted. */
+    installationId: d.varchar({ length: 128 }),
+    deviceKind: d.varchar({ length: 16 }).$type<DeviceKind>(),
+    deviceLabel: d.varchar({ length: 128 }),
+    devicePlatform: d.varchar({ length: 64 }),
+    deviceAppVersion: d.varchar({ length: 32 }),
     consumedAt: d.timestamp({ withTimezone: true }),
     deniedAt: d.timestamp({ withTimezone: true }),
     expiresAt: d.timestamp({ withTimezone: true }).notNull(),
@@ -750,6 +905,53 @@ export const deviceCodes = createTable(
   (t) => [
     uniqueIndex("device_code_hash_idx").on(t.deviceCodeHash),
     uniqueIndex("device_code_user_idx").on(t.userCode),
+  ],
+);
+
+export type DeviceKind =
+  | "cli"
+  | "browser"
+  | "web"
+  | "ios"
+  | "android"
+  | "desktop";
+
+/**
+ * A client the user signs in from — laptop, phone, Atlas Browser, CLI.
+ *
+ * NOT a `machine` (that is a remote VM Atlas runs code on). A device never runs
+ * Atlas workloads; it only acts on Atlas.
+ *
+ * `id` is minted server-side at token issuance and is the only value ever
+ * written to the audit trail. `installationId` is client-supplied and is a
+ * continuity hint ONLY — it is matched scoped to `userId`, so forging one can
+ * merge into a device you already own but can never attribute an action to
+ * another user's device.
+ */
+export const devices = createTable(
+  "device",
+  (d) => ({
+    id: d.varchar({ length: 64 }).primaryKey().$defaultFn(id),
+    userId: d
+      .varchar({ length: 64 })
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** Client-supplied stable install id. A hint for continuity, never authority. */
+    installationId: d.varchar({ length: 128 }),
+    kind: d.varchar({ length: 16 }).$type<DeviceKind>().notNull(),
+    /** User-visible and user-editable. */
+    label: d.varchar({ length: 128 }).notNull(),
+    /** Coarse only — "macOS 27", "iOS 19". Never a fingerprint. */
+    platform: d.varchar({ length: 64 }),
+    appVersion: d.varchar({ length: 32 }),
+    lastSeenAt: d.timestamp({ withTimezone: true }),
+    /** Revoked devices are never deleted — audit rows reference them. */
+    revokedAt: d.timestamp({ withTimezone: true }),
+    createdAt: createdAt(),
+  }),
+  (t) => [
+    index("device_user_idx").on(t.userId),
+    uniqueIndex("device_installation_idx").on(t.userId, t.installationId),
   ],
 );
 
@@ -764,6 +966,10 @@ export const cliTokens = createTable(
       .references(() => users.id, { onDelete: "cascade" }),
     tokenHash: d.varchar({ length: 64 }).notNull(),
     tokenPrefix: d.varchar({ length: 16 }).notNull(),
+    /** The device this token was minted for. Null for tokens predating devices. */
+    deviceId: d.varchar({ length: 64 }).references(() => devices.id, {
+      onDelete: "set null",
+    }),
     label: d.varchar({ length: 128 }).notNull().default("Atlas CLI"),
     lastUsedAt: d.timestamp({ withTimezone: true }),
     revokedAt: d.timestamp({ withTimezone: true }),

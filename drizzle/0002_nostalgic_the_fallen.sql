@@ -1,0 +1,1 @@
+ALTER TABLE "atlas_source_version" ADD COLUMN "syncedByDeviceId" varchar(64);

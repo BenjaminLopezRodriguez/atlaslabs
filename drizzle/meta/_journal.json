@@ -8,6 +8,34 @@
       "when": 1785058917532,
       "tag": "0000_nosy_gwen_stacy",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785127550602,
+      "tag": "0001_normal_runaways",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785127674666,
+      "tag": "0002_nostalgic_the_fallen",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785130050495,
+      "tag": "0003_mature_phantom_reporter",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785135329452,
+      "tag": "0004_last_hex",
+      "breakpoints": true
     }
   ]
 }

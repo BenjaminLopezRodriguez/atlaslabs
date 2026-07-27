@@ -100,6 +100,7 @@ export const groupRouter = createTRPCRouter({
         action: "member.join",
         groupId: inv.groupId,
         userId: ctx.user.id,
+        deviceId: ctx.user.deviceId,
         detail: { type: "membership", role: inv.role, invitationId: inv.id },
       });
       return { groupId: inv.groupId, role: inv.role };
@@ -123,6 +124,7 @@ export const groupRouter = createTRPCRouter({
         action: "member.invite.revoke",
         groupId: input.groupId,
         userId: ctx.user.id,
+        deviceId: ctx.user.deviceId,
         detail: { type: "invitation", id: input.invitationId },
       });
       return { ok: true };

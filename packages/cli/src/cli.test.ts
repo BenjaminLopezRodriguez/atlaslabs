@@ -4,7 +4,14 @@ import * as os from "node:os";
 import * as path from "node:path";
 import test from "node:test";
 
-import { collectFiles, globToRegExp, isSecretPath } from "./cli.js";
+import {
+  collectFiles,
+  globToRegExp,
+  isSecretPath,
+  parseExecArgs,
+  parsePingQuestion,
+  remotePath,
+} from "./cli.js";
 
 void test("globToRegExp", () => {
   assert.ok(globToRegExp("src/**").test("src/a/b.ts"));
@@ -41,4 +48,50 @@ void test("collectFiles rejects secrets and binaries, honors globs", () => {
   assert.ok(skipped.some((s) => s.path === "src/key.ts"));
   assert.ok(skipped.some((s) => s.path === "src/blob.bin"));
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+void test("parseExecArgs passes the remote command through verbatim", () => {
+  assert.deepEqual(parseExecArgs(["--", "echo", "hi"]), ["echo", "hi"]);
+  // flags after `--` belong to the remote command, not to atlas
+  assert.deepEqual(parseExecArgs(["--", "ls", "-la", "--color"]), [
+    "ls",
+    "-la",
+    "--color",
+  ]);
+  // only the first `--` separates; later ones are part of the command
+  assert.deepEqual(parseExecArgs(["--", "git", "log", "--", "path"]), [
+    "git",
+    "log",
+    "--",
+    "path",
+  ]);
+  // no separator: the whole tail is the command
+  assert.deepEqual(parseExecArgs(["pnpm", "build"]), ["pnpm", "build"]);
+  assert.deepEqual(parseExecArgs([]), []);
+  assert.deepEqual(parseExecArgs(["--"]), []);
+});
+
+void test("remotePath keeps workspace-relative semantics", () => {
+  assert.equal(remotePath("src/app.ts"), "src/app.ts");
+  // the /workspace prefix users see in `exec` output is accepted
+  assert.equal(remotePath("/workspace/src/app.ts"), "src/app.ts");
+  assert.equal(remotePath("/workspace"), "");
+  // a directory literally named workspace is not the workdir prefix
+  assert.equal(remotePath("workspace/app.ts"), "workspace/app.ts");
+});
+
+void test("parsePingQuestion keeps the question when flags are absent", () => {
+  // the regression: an absent flag made indexOf return -1, and the
+  // "flag + 1" check then matched index 0 and ate the question
+  assert.equal(parsePingQuestion(["Deploy tonight?"]), "Deploy tonight?");
+  assert.equal(parsePingQuestion(["Deploy tonight?", "--no-wait"]), "Deploy tonight?");
+  assert.equal(
+    parsePingQuestion(["Deploy", "tonight?", "--timeout", "60"]),
+    "Deploy tonight?",
+  );
+  assert.equal(
+    parsePingQuestion(["Pick", "one", "--context", "arch", "--timeout", "60"]),
+    "Pick one",
+  );
+  assert.equal(parsePingQuestion([]), "");
 });

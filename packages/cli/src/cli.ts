@@ -8,13 +8,20 @@
  */
 
 import { execFileSync, spawn } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
-const DEFAULT_BASE = process.env.ATLAS_BASE_URL ?? "http://localhost:3000";
+/*
+ * Production by default — this ships to users who have no local server.
+ * Use the `www` host explicitly: the apex redirects, and a redirect hop drops
+ * the Authorization header, so an apex call lands unauthenticated.
+ * Override with ATLAS_BASE_URL (or `baseUrl` in the config file) for local dev.
+ */
+const DEFAULT_BASE =
+  process.env.ATLAS_BASE_URL ?? "https://www.atlaslabs.id";
 
 /* ----------------------------- config ------------------------------ */
 
@@ -48,6 +55,38 @@ function writeConfig(cfg: Config) {
     JSON.stringify(cfg, null, 2) + "\n",
     { mode: 0o600 },
   );
+}
+
+/**
+ * Stable per-install id, generated once and kept in the config dir.
+ *
+ * This is a CONTINUITY HINT ONLY — it lets this machine keep one device
+ * identity across re-logins. The authoritative device id is minted server-side;
+ * the server matches this value scoped to the authenticating user, so it
+ * carries no authority of its own.
+ */
+function installationId(): string {
+  const file = path.join(configDir(), "installation");
+  try {
+    const existing = fs.readFileSync(file, "utf8").trim();
+    if (existing) return existing;
+  } catch {
+    // not created yet
+  }
+  const generated = randomUUID();
+  fs.mkdirSync(configDir(), { recursive: true });
+  fs.writeFileSync(file, generated + "\n", { mode: 0o600 });
+  return generated;
+}
+
+/** Coarse platform string for the device list. Never a fingerprint. */
+function platformLabel(): string {
+  const names: Record<string, string> = {
+    darwin: "macOS",
+    win32: "Windows",
+    linux: "Linux",
+  };
+  return `${names[process.platform] ?? process.platform} ${os.release()}`;
 }
 
 const KEYCHAIN_SERVICE = "id.atlaslabs.cli";
@@ -91,7 +130,9 @@ function loadToken(): string | null {
           os.userInfo().username,
           "-w",
         ],
-        { encoding: "utf8" },
+        // `security` writes "item could not be found" to stderr on a miss,
+        // which is a normal state (file fallback) — don't show it to the user
+        { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
       ).trim();
     } catch {
       /* fall through */
@@ -354,7 +395,12 @@ async function cmdLogin() {
   const code = await api(
     "POST",
     "/api/v1/auth/device/code",
-    {},
+    {
+      installation_id: installationId(),
+      kind: "cli",
+      label: `${os.hostname()} (CLI)`.slice(0, 128),
+      platform: platformLabel(),
+    },
     { auth: false },
   );
   console.log(`\nYour code: ${code.user_code}`);
@@ -789,7 +835,14 @@ async function cmdApiKey(sub: string | undefined, rest: string[]) {
   fail("Usage: atlas api-key <create|list|revoke>");
 }
 
-function cmdOpen() {
+function cmdOpen(slug?: string) {
+  // `atlas open <slug>` hands off to Atlas Browser via the custom scheme
+  if (slug) {
+    const url = `atlas://workspace/${slug}`;
+    openBrowser(url);
+    console.log(url);
+    return;
+  }
   openBrowser(`${baseUrl()}/app`);
   console.log(`${baseUrl()}/app`);
 }
@@ -808,6 +861,367 @@ function promptYesNo(q: string): Promise<boolean> {
 
 /* -------------------------------- main ------------------------------- */
 
+type DeviceRow = {
+  id: string;
+  kind: string;
+  label: string;
+  platform: string | null;
+  lastSeenAt: string | null;
+  revokedAt: string | null;
+  current: boolean;
+};
+
+/* -------------------------------- ping ------------------------------ */
+
+type PingRow = {
+  id: string;
+  status: "pending" | "answered" | "expired" | "cancelled";
+  question: string;
+  answer: string | null;
+  context: string | null;
+  createdAt: string;
+  answeredAt: string | null;
+};
+
+/**
+ * Ask the human a question and wait for their reply.
+ *
+ * Blocks so an agent can use the answer inline instead of stopping the whole
+ * run to ask in chat. On timeout it exits non-zero with the reply link still
+ * live, so the caller can decide whether to keep waiting or proceed on a
+ * default — the question is never lost.
+ */
+/**
+ * Split `ping_user` args into the question, dropping flags and their values.
+ *
+ * The -1 guards matter: without them an absent flag makes `indexOf` return -1,
+ * and the "flag + 1" check then matches index 0 and swallows the question.
+ */
+export function parsePingQuestion(rest: string[]): string {
+  const consumed = new Set<number>();
+  for (const flag of ["--timeout", "--context"]) {
+    const idx = rest.indexOf(flag);
+    if (idx !== -1) {
+      consumed.add(idx);
+      consumed.add(idx + 1);
+    }
+  }
+  return rest
+    .filter((a, i) => a !== "--no-wait" && !consumed.has(i))
+    .join(" ")
+    .trim();
+}
+
+async function cmdPingUser(slug: string | undefined, rest: string[]) {
+  if (!slug) {
+    fail('Usage: atlas ping_user <slug> "<question>" [--timeout <seconds>] [--context <label>] [--no-wait]');
+  }
+
+  const timeoutIdx = rest.indexOf("--timeout");
+  const contextIdx = rest.indexOf("--context");
+  const noWait = rest.includes("--no-wait");
+
+  const question = parsePingQuestion(rest);
+
+  if (!question) fail('A question is required: atlas ping_user <slug> "should I use Postgres or SQLite?"');
+
+  const timeoutSec = timeoutIdx === -1 ? 300 : Number(rest[timeoutIdx + 1]);
+  if (!Number.isFinite(timeoutSec) || timeoutSec <= 0) {
+    fail("--timeout must be a positive number of seconds");
+  }
+
+  const m = await findMachine(slug);
+  const res = (await api("POST", `/api/v1/machines/${m.id}/ping`, {
+    question,
+    context: contextIdx === -1 ? undefined : rest[contextIdx + 1],
+    ttlSeconds: Math.ceil(timeoutSec),
+  })) as {
+    ping: { id: string };
+    replyUrl: string;
+    notified: boolean;
+    notifyError: string | null;
+  };
+
+  // Everything but the answer goes to stderr, so `$(atlas ping_user …)`
+  // captures exactly the human's reply and nothing else.
+  process.stderr.write(`Asked: ${question}\n`);
+  process.stderr.write(`Reply: ${res.replyUrl}\n`);
+  if (!res.notified) {
+    process.stderr.write(
+      `(not delivered${res.notifyError ? `: ${res.notifyError}` : ""} — send the link above)\n`,
+    );
+  }
+
+  if (noWait) {
+    process.stderr.write(`Ping ${res.ping.id} created; not waiting.\n`);
+    return;
+  }
+
+  const deadline = Date.now() + timeoutSec * 1000;
+  let delay = 2000;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, delay));
+    delay = Math.min(delay * 1.4, 10000); // back off; a human is not fast
+    const { ping } = (await api("GET", `/api/v1/pings/${res.ping.id}`)) as {
+      ping: PingRow;
+    };
+    if (ping.status === "answered") {
+      process.stderr.write("Answered.\n");
+      process.stdout.write(`${ping.answer ?? ""}\n`);
+      return;
+    }
+    if (ping.status === "expired" || ping.status === "cancelled") break;
+  }
+
+  process.stderr.write(
+    `No reply within ${timeoutSec}s. The link stays open: ${res.replyUrl}\n`,
+  );
+  process.exitCode = 2;
+}
+
+/** The message log: every question asked of the human on this machine. */
+async function cmdPingLog(slug: string | undefined) {
+  if (!slug) fail("Usage: atlas ping log <slug>");
+  const m = await findMachine(slug);
+  const { pings } = (await api("GET", `/api/v1/machines/${m.id}/ping`)) as {
+    pings: PingRow[];
+  };
+  if (!pings.length) return console.log("No pings on this machine yet.");
+
+  for (const p of pings) {
+    const when = new Date(p.createdAt).toISOString().slice(0, 16).replace("T", " ");
+    console.log(`[${when}] ${p.status.toUpperCase()}${p.context ? ` (${p.context})` : ""}`);
+    console.log(`  Q: ${p.question}`);
+    if (p.answer) console.log(`  A: ${p.answer}`);
+    console.log("");
+  }
+}
+
+async function cmdPing(sub: string | undefined, rest: string[]) {
+  if (sub === "log") return cmdPingLog(rest[0]);
+  fail("Usage: atlas ping log <slug>   (to ask: atlas ping_user <slug> \"<question>\")");
+}
+
+/* ------------------------------ machines ---------------------------- */
+
+type MachineRow = {
+  id: string;
+  slug: string;
+  name: string | null;
+  status: string;
+  ports: { port: number; label?: string }[];
+  url: string;
+};
+
+/** Resolve a machine by slug within the current workspace. */
+async function findMachine(slug: string): Promise<MachineRow> {
+  const w = await resolveWorkspace();
+  const { machine } = (await api(
+    "GET",
+    `/api/v1/machines/by-slug/${encodeURIComponent(slug)}?workspaceId=${w.id}`,
+  )) as { machine: MachineRow };
+  return machine;
+}
+
+async function cmdMachine(sub: string | undefined, rest: string[]) {
+  if (sub === "list" || sub === "ls") {
+    const w = await resolveWorkspace();
+    const { machines } = (await api(
+      "GET",
+      `/api/v1/machines?workspaceId=${w.id}`,
+    )) as { machines: MachineRow[] };
+    if (!machines.length) {
+      return console.log("No machines. Create one with `atlas machine create <slug>`.");
+    }
+    for (const m of machines) {
+      const ports = m.ports.map((p) => p.port).join(",");
+      console.log(
+        `${m.slug.padEnd(24)} ${m.status.padEnd(12)} ${ports ? `ports ${ports}` : ""}`,
+      );
+    }
+    return;
+  }
+
+  if (sub === "create") {
+    const slug = rest[0];
+    if (!slug) fail("Usage: atlas machine create <slug> [--template <id>]");
+    const templateIdx = rest.indexOf("--template");
+    const w = await resolveWorkspace();
+    const { machine } = (await api("POST", "/api/v1/machines", {
+      slug,
+      workspaceId: w.id,
+      ...(templateIdx !== -1 ? { templateId: rest[templateIdx + 1] } : {}),
+    })) as { machine: MachineRow };
+    console.log(`Created ${machine.slug} (${machine.status})`);
+    console.log(machine.url);
+    return;
+  }
+
+  if (sub === "status") {
+    const slug = rest[0];
+    if (!slug) fail("Usage: atlas machine status <slug>");
+    const m = await findMachine(slug);
+    console.log(`${m.slug}  ${m.status}`);
+    for (const p of m.ports) {
+      console.log(`  port ${p.port}${p.label ? `  ${p.label}` : ""}`);
+    }
+    return;
+  }
+
+  if (sub === "remove" || sub === "rm" || sub === "stop") {
+    const slug = rest[0];
+    if (!slug) fail(`Usage: atlas machine ${sub} <slug>`);
+    const m = await findMachine(slug);
+    await api("POST", `/api/v1/machines/${m.id}/stop`);
+    console.log(`Stopped ${slug}.`);
+    return;
+  }
+
+  if (sub === "suspend" || sub === "resume") {
+    const slug = rest[0];
+    if (!slug) fail(`Usage: atlas machine ${sub} <slug>`);
+    const m = await findMachine(slug);
+    await api("POST", `/api/v1/machines/${m.id}/${sub}`);
+    console.log(`${sub === "suspend" ? "Suspended" : "Resumed"} ${slug}.`);
+    return;
+  }
+
+  fail("Usage: atlas machine <create|list|status|suspend|resume|stop>");
+}
+
+/**
+ * Everything after the first `--` is the remote command, verbatim — including
+ * anything that looks like a flag. Without `--`, the whole tail is the command.
+ */
+export function parseExecArgs(rest: string[]): string[] {
+  const sep = rest.indexOf("--");
+  return sep === -1 ? rest : rest.slice(sep + 1);
+}
+
+async function cmdExec(slug: string | undefined, rest: string[]) {
+  if (!slug) fail("Usage: atlas exec <slug> -- <command...>");
+  const parts = parseExecArgs(rest);
+  if (!parts.length) fail("Usage: atlas exec <slug> -- <command...>");
+
+  const m = await findMachine(slug);
+  const result = (await api("POST", `/api/v1/machines/${m.id}/exec`, {
+    cmd: parts.join(" "),
+  })) as { exitCode: number; stdout: string; stderr: string };
+
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  // propagate the remote exit code — a wrapper that always exits 0 breaks
+  // every script that checks it
+  process.exitCode = result.exitCode;
+}
+
+/**
+ * Remote paths are workspace-relative — the machine's workdir is /workspace.
+ *
+ * Accepts `/workspace/x` for convenience because that is what `exec`/`ls` show,
+ * but refuses other absolute paths rather than silently rewriting them: turning
+ * `/etc/hosts` into a workspace-relative write is the kind of guess that
+ * quietly puts a file somewhere the user did not ask for.
+ */
+export function remotePath(input: string): string {
+  if (input.startsWith("/workspace/")) return input.slice("/workspace/".length);
+  if (input === "/workspace") return "";
+  if (input.startsWith("/")) {
+    fail(
+      `Remote paths are relative to the workspace. Use "${input.replace(/^\/+/, "")}" or a /workspace/... path.`,
+    );
+  }
+  return input;
+}
+
+async function cmdPut(slug: string | undefined, rest: string[]) {
+  const [local, remote] = rest;
+  if (!slug || !local || !remote) {
+    fail("Usage: atlas put <slug> <localPath> <remotePath>");
+  }
+  const m = await findMachine(slug);
+  const token = loadToken();
+  if (!token) fail("Not logged in. Run `atlas login` first.");
+  const body = fs.readFileSync(local);
+  const res = await fetch(
+    `${baseUrl()}/api/v1/machines/${m.id}/files/${remotePath(remote)}`,
+    {
+      method: "PUT",
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/octet-stream",
+      },
+      body: new Uint8Array(body),
+    },
+  );
+  if (!res.ok) fail(`Upload failed (${res.status})`);
+  console.log(`Uploaded ${local} -> ${slug}:${remote}`);
+}
+
+async function cmdGet(slug: string | undefined, rest: string[]) {
+  const [remote, local] = rest;
+  if (!slug || !remote) fail("Usage: atlas get <slug> <remotePath> [localPath|-]");
+  const m = await findMachine(slug);
+  const token = loadToken();
+  if (!token) fail("Not logged in. Run `atlas login` first.");
+  const res = await fetch(
+    `${baseUrl()}/api/v1/machines/${m.id}/files/${remotePath(remote)}`,
+    { headers: { authorization: `Bearer ${token}` } },
+  );
+  if (!res.ok) fail(`Download failed (${res.status})`);
+  const buf = Buffer.from(await res.arrayBuffer());
+  if (!local || local === "-") {
+    process.stdout.write(buf);
+  } else {
+    fs.writeFileSync(local, buf);
+    console.log(`Wrote ${local}`);
+  }
+}
+
+async function cmdPorts(slug: string | undefined) {
+  if (!slug) fail("Usage: atlas ports <slug>");
+  const m = await findMachine(slug);
+  const { ports } = (await api("GET", `/api/v1/machines/${m.id}/ports`)) as {
+    ports: { port: number; label?: string }[];
+  };
+  if (!ports.length) return console.log("No ports.");
+  for (const p of ports) {
+    console.log(`${p.port}${p.label ? `  ${p.label}` : ""}`);
+  }
+}
+
+async function cmdDevice(sub: string | undefined, rest: string[]) {
+  if (sub === "list" || sub === "ls" || sub === undefined) {
+    const { devices } = (await api("GET", "/api/v1/devices")) as {
+      devices: DeviceRow[];
+    };
+    if (!devices.length) return console.log("No devices.");
+    for (const d of devices) {
+      const seen = d.lastSeenAt
+        ? new Date(d.lastSeenAt).toISOString().slice(0, 16).replace("T", " ")
+        : "never";
+      const flags = [
+        d.current ? "current" : null,
+        d.revokedAt ? "revoked" : null,
+      ]
+        .filter(Boolean)
+        .join(",");
+      console.log(
+        `${d.id}  ${d.kind.padEnd(7)}  ${d.label}  ${d.platform ?? ""}  last seen ${seen}${flags ? `  [${flags}]` : ""}`,
+      );
+    }
+    return;
+  }
+  if (sub === "remove" || sub === "rm" || sub === "revoke") {
+    const deviceId = rest[0];
+    if (!deviceId) fail("Usage: atlas device rm <deviceId>");
+    await api("POST", `/api/v1/devices/${deviceId}/revoke`);
+    console.log("Device revoked. Its tokens no longer work.");
+    return;
+  }
+  fail("Usage: atlas device <list|rm>");
+}
+
 const HELP = `atlas — Atlas Labs CLI
 
   atlas login | logout | whoami
@@ -819,6 +1233,14 @@ const HELP = `atlas — Atlas Labs CLI
   atlas specialist run <slug> "<message>" | eval <slug> | deploy <slug>
   atlas logs [run] | wait [run]
   atlas api-key create <specialist> [label] | list | revoke <keyId>
+  atlas device list | rm <deviceId>
+  atlas machine create <slug> [--template <id>] | list | status <slug>
+  atlas machine suspend | resume | stop <slug>
+  atlas exec <slug> -- <command...>
+  atlas put <slug> <local> <remote> | get <slug> <remote> [local|-]
+  atlas ports <slug>
+  atlas ping_user <slug> "<question>" [--timeout <s>] [--context <l>] [--no-wait]
+  atlas ping log <slug>
 
 Server: ATLAS_BASE_URL (default ${DEFAULT_BASE})`;
 
@@ -846,21 +1268,43 @@ async function main() {
     case "specialist":
       return cmdSpecialist(sub, rest);
     case "open":
-      return cmdOpen();
+      return cmdOpen(sub);
     case "logs":
       return cmdLogs(sub);
     case "wait":
       return cmdWait(sub);
     case "api-key":
       return cmdApiKey(sub, rest);
+    case "device":
+      return cmdDevice(sub, rest);
+    case "machine":
+      return cmdMachine(sub, rest);
+    case "exec":
+      return cmdExec(sub, rest);
+    case "put":
+      return cmdPut(sub, rest);
+    case "get":
+      return cmdGet(sub, rest);
+    case "ports":
+      return cmdPorts(sub);
+    case "ping_user":
+    case "ping-user":
+      return cmdPingUser(sub, rest);
+    case "ping":
+      return cmdPing(sub, rest);
     default:
       console.log(HELP);
   }
 }
 
-const isDirectRun =
-  process.argv[1] &&
-  (process.argv[1].endsWith("cli.ts") || process.argv[1].endsWith("cli.js"));
+/*
+ * Run main() only when invoked as a program, never when the test file imports
+ * this module. Matches the source entry (cli.ts/cli.js), the single-file bundle
+ * (atlas.cjs), and the installed binary (…/bin/atlas, no extension).
+ */
+const ENTRY_NAMES = ["cli.ts", "cli.js", "atlas.cjs", "atlas.js", "atlas"];
+const invokedAs = process.argv[1]?.split(/[\\/]/).pop() ?? "";
+const isDirectRun = ENTRY_NAMES.includes(invokedAs);
 if (isDirectRun) {
   main().catch((err) => fail(String(err?.message ?? err)));
 }

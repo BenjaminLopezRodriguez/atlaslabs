@@ -63,6 +63,7 @@ export async function DELETE(req: Request) {
       action: "source.revoke",
       groupId: workspace.groupId,
       userId: user.id,
+      deviceId: user.deviceId,
       detail: { type: "source", id: source.id, origin: source.origin },
     });
     return Response.json({ ok: true });
