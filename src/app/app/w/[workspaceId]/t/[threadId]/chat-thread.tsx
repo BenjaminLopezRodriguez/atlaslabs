@@ -1,11 +1,62 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { CheckCheck } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { ChatComposer, ChatThreadMenu } from "@/components/atlas/chat-composer";
+import { ChatThreadHeader } from "@/components/atlas/chat-thread-header";
+import { Bubble, BubbleContent } from "@/components/ui/bubble";
+import {
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import { Marker, MarkerContent } from "@/components/ui/marker";
+import {
+  Message,
+  MessageContent,
+  MessageFooter,
+} from "@/components/ui/message";
+import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
+
+function formatTime(value: Date | string | null | undefined) {
+  if (!value) return "";
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(d);
+}
+
+/** Empty streaming reply — caret, then throb + Thinking… after 200ms. */
+function AgentPendingReply({ label = "thinking..." }: { label?: string }) {
+  const [waiting, setWaiting] = useState(false);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setWaiting(true), 200);
+    return () => window.clearTimeout(t);
+  }, []);
+
+  return (
+    <div className="flex flex-col gap-2" aria-live="polite" aria-busy="true">
+      <div className="flex items-center gap-2">
+        <span
+          aria-hidden
+          className={cn(
+            "bg-foreground inline-block h-4 w-0.5 rounded-[1px]",
+            waiting ? "cursor-throb" : "animate-pulse",
+          )}
+        />
+        {waiting ? (
+          <span className="shimmer text-sm font-medium">{label}</span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 /** Live status of the most recently started run (polls run events). */
 function RunStatus({ runId }: { runId: string }) {
@@ -23,19 +74,15 @@ function RunStatus({ runId }: { runId: string }) {
   const status = q.data?.status;
   if (!status || status === "succeeded") return null;
   const last = q.data?.events.at(-1);
-  return (
-    <p className="text-muted-foreground text-[12px]">
-      run {status}
-      {last ? ` · ${last.kind}` : ""}
-      {status === "failed" ? " — see run log" : "…"}
-    </p>
-  );
+  const label =
+    status === "failed"
+      ? "failed"
+      : last?.kind
+        ? `${status} · ${last.kind}`
+        : "thinking...";
+  return <AgentPendingReply label={label} />;
 }
 
-/**
- * Explicit correction capture on a specialist output; promotion is a
- * separate explicit action (spec §5).
- */
 function CorrectionControls({
   specialistId,
   messageId,
@@ -128,28 +175,58 @@ export function ChatThread({
   workspaceId: string;
   threadId: string;
 }) {
+  const router = useRouter();
   const utils = api.useUtils();
   const [draft, setDraft] = useState("");
+  const [optimistic, setOptimistic] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const q = api.thread.messages.useQuery(
     { threadId },
-    // Poll — replaced by run-event streaming in the runs slice.
     { refetchInterval: 4000 },
   );
   const post = api.thread.post.useMutation({
-    onSuccess: () => utils.thread.messages.invalidate({ threadId }),
+    onSuccess: () => {
+      setOptimistic(null);
+      void utils.thread.messages.invalidate({ threadId });
+      void utils.thread.list.invalidate({ workspaceId });
+    },
+    onError: () => setOptimistic(null),
+  });
+  const createSpecialist = api.specialist.createFromPrompt.useMutation({
+    onSuccess: ({ specialist, threadId: nextThreadId }) => {
+      void utils.thread.list.invalidate({
+        workspaceId: specialist.workspaceId,
+      });
+      router.push(`/app/w/${specialist.workspaceId}/t/${nextThreadId}`);
+    },
   });
 
+  const messages = q.data?.messages ?? [];
+  const studio = messages.length > 0 || Boolean(optimistic);
+  const busy = post.isPending || createSpecialist.isPending;
+  const awaiting =
+    post.isPending ||
+    createSpecialist.isPending ||
+    Boolean(post.data?.runId && post.isSuccess);
+
   useEffect(() => {
+    if (!studio) return;
     bottomRef.current?.scrollIntoView({ block: "end" });
-  }, [q.data?.messages.length]);
+  }, [studio, messages.length, optimistic, awaiting]);
 
   function send() {
     const content = draft.trim();
-    if (!content) return;
+    if (!content || busy) return;
     setDraft("");
+    setOptimistic(content);
     post.mutate({ threadId, content });
+  }
+
+  function inferSpecialist() {
+    const content = draft.trim();
+    if (!content || busy) return;
+    createSpecialist.mutate({ workspaceId, prompt: content });
   }
 
   if (q.isLoading) {
@@ -163,71 +240,327 @@ export function ChatThread({
     );
   }
 
+  const title = q.data?.thread.title ?? "Chat";
+  const kind = q.data?.thread.specialistId ? "specialist" : "chat";
+
   return (
-    <div className="text-foreground flex min-h-full flex-col">
-      <header className="border-border flex items-center justify-between border-b px-4 py-3">
-        <div className="flex items-center gap-3">
-          {/* Sidebar covers this at md+; keep an escape hatch while it's hidden. */}
-          <Link
-            href={`/app/w/${workspaceId}`}
-            className="text-muted-foreground hover:text-foreground text-[13px] md:hidden"
-          >
-            ← Workspace
-          </Link>
-          <h1 className="text-sm font-medium tracking-tight">
-            {q.data?.thread.title}
-          </h1>
-        </div>
-      </header>
+    <section className="bg-background relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      {studio ? (
+        <ChatThreadHeader
+          title={title}
+          leading={
+            <Link
+              href={`/app/w/${workspaceId}`}
+              className="text-muted-foreground hover:text-foreground px-2 text-[13px] md:hidden"
+            >
+              ←
+            </Link>
+          }
+          actions={
+            <ChatThreadMenu>
+              <DropdownMenuContent align="end" className="min-w-44">
+                <DropdownMenuItem
+                  onClick={() => router.push(`/app/w/${workspaceId}`)}
+                >
+                  Workspace
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push("/app")}>
+                  New chat
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </ChatThreadMenu>
+          }
+        />
+      ) : null}
 
-      <main className="mx-auto w-full max-w-2xl flex-1 space-y-4 px-4 py-6">
-        {q.data?.messages.map((m) => (
-          <div key={m.id} className="text-sm leading-relaxed">
-            <p className="text-muted-foreground text-[12px] font-medium">
-              {m.role === "user"
-                ? (m.author?.name ?? m.author?.email ?? "You")
-                : "Atlas"}
-            </p>
-            <p className="mt-1 whitespace-pre-wrap">{m.content}</p>
-            {m.role === "assistant" &&
-              q.data.thread.specialistId &&
-              typeof (m.meta as { runId?: string })?.runId === "string" && (
-                <CorrectionControls
-                  specialistId={q.data.thread.specialistId}
-                  messageId={m.id}
-                  runId={(m.meta as { runId: string }).runId}
-                />
+      <div
+        className={cn(
+          "mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col px-8 transition-[justify-content,gap,padding] duration-500 ease-out md:px-10",
+          studio
+            ? "justify-end gap-4 overflow-hidden pt-14 pb-6 md:pt-16"
+            : "items-center justify-center gap-6 py-8",
+        )}
+      >
+        {studio ? (
+          <div className="min-h-0 w-full flex-1 overflow-y-auto">
+            <div className="mx-auto flex max-w-3xl flex-col gap-3 py-2">
+              <Marker role="status" className="my-2">
+                <MarkerContent>
+                  {kind === "specialist" ? "Specialist" : "Chat"} · atlas
+                </MarkerContent>
+              </Marker>
+
+              {messages.map((m) =>
+                m.role === "user" ? (
+                  <Message key={m.id} align="end">
+                    <MessageContent>
+                      <Bubble variant="default">
+                        <BubbleContent className="max-w-[min(100%,24rem)]">
+                          {m.content}
+                        </BubbleContent>
+                      </Bubble>
+                      <MessageFooter className="gap-1">
+                        {formatTime(m.createdAt)}
+                        <CheckCheck className="size-3.5" aria-hidden="true" />
+                      </MessageFooter>
+                    </MessageContent>
+                  </Message>
+                ) : (
+                  <Message key={m.id} align="start">
+                    <MessageContent className="max-w-none">
+                      <p className="text-foreground text-sm leading-relaxed whitespace-pre-wrap">
+                        {m.content}
+                      </p>
+                      {q.data?.thread.specialistId &&
+                        typeof (m.meta as { runId?: string })?.runId ===
+                          "string" && (
+                          <CorrectionControls
+                            specialistId={q.data.thread.specialistId}
+                            messageId={m.id}
+                            runId={(m.meta as { runId: string }).runId}
+                          />
+                        )}
+                      <MessageFooter>{formatTime(m.createdAt)}</MessageFooter>
+                    </MessageContent>
+                  </Message>
+                ),
               )}
-          </div>
-        ))}
-        {post.data?.runId && <RunStatus runId={post.data.runId} />}
-        <div ref={bottomRef} />
-      </main>
 
-      <footer className="border-border sticky bottom-0 border-t bg-inherit px-4 py-3">
-        <div className="mx-auto flex max-w-2xl items-end gap-2">
-          <Textarea
+              {optimistic &&
+              !messages.some(
+                (m) => m.role === "user" && m.content === optimistic,
+              ) ? (
+                <Message align="end">
+                  <MessageContent>
+                    <Bubble variant="default">
+                      <BubbleContent className="max-w-[min(100%,24rem)]">
+                        {optimistic}
+                      </BubbleContent>
+                    </Bubble>
+                    <MessageFooter className="gap-1">
+                      {formatTime(new Date())}
+                      <CheckCheck className="size-3.5" aria-hidden="true" />
+                    </MessageFooter>
+                  </MessageContent>
+                </Message>
+              ) : null}
+
+              {post.isPending || createSpecialist.isPending ? (
+                <Message align="start">
+                  <MessageContent className="max-w-none">
+                    <AgentPendingReply
+                      label={
+                        createSpecialist.isPending
+                          ? "Inferring specialist…"
+                          : "thinking..."
+                      }
+                    />
+                  </MessageContent>
+                </Message>
+              ) : null}
+              {post.data?.runId && !post.isPending ? (
+                <Message align="start">
+                  <MessageContent className="max-w-none">
+                    <RunStatus runId={post.data.runId} />
+                  </MessageContent>
+                </Message>
+              ) : null}
+
+              <div ref={bottomRef} />
+            </div>
+          </div>
+        ) : (
+          <header className="flex max-w-xl flex-col items-center gap-2 text-center">
+            <h1 className="font-heading text-2xl font-normal tracking-tight md:text-3xl">
+              Ready when you are.
+            </h1>
+          </header>
+        )}
+
+        <div
+          className={cn(
+            "flex w-full flex-col gap-2",
+            studio && "relative z-10 shrink-0",
+          )}
+        >
+          <ChatComposer
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                send();
-              }
-            }}
-            rows={2}
-            placeholder="Message this specialist…"
-            className="resize-none"
+            onChange={setDraft}
+            onSubmit={send}
+            onSpecialist={inferSpecialist}
+            placeholder={studio ? "Message…" : "What should we work on?"}
+            disabled={busy}
+            studio={studio}
           />
-          <Button
-            onClick={send}
-            disabled={post.isPending || !draft.trim()}
-            className="h-9 shrink-0 rounded-md px-3.5 text-[13px]"
-          >
-            Send
-          </Button>
         </div>
-      </footer>
-    </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Signed-in home composer. First send morphs into a thread (center → bottom),
+ * then navigates to the persisted thread URL.
+ */
+export function ChatHome({ initialPrompt }: { initialPrompt?: string }) {
+  const router = useRouter();
+  const utils = api.useUtils();
+  const [draft, setDraft] = useState(initialPrompt ?? "");
+  const [boot, setBoot] = useState<{ text: string } | null>(
+    initialPrompt?.trim() ? { text: initialPrompt.trim() } : null,
+  );
+  const [error, setError] = useState<string | null>(null);
+  const started = useRef(false);
+
+  const workspaces = api.workspace.list.useQuery();
+  const createThread = api.thread.create.useMutation();
+  const post = api.thread.post.useMutation();
+  const createSpecialist = api.specialist.createFromPrompt.useMutation();
+
+  const studio = Boolean(boot);
+  const busy =
+    createThread.isPending || post.isPending || createSpecialist.isPending;
+
+  async function startChat(text: string) {
+    const workspaceId = workspaces.data?.personal.id;
+    if (!workspaceId) return;
+    setError(null);
+    setBoot({ text });
+    setDraft("");
+    try {
+      const thread = await createThread.mutateAsync({ workspaceId });
+      await post.mutateAsync({ threadId: thread.id, content: text });
+      void utils.thread.list.invalidate({ workspaceId });
+      router.replace(`/app/w/${workspaceId}/t/${thread.id}`);
+    } catch (e) {
+      setBoot(null);
+      setError(e instanceof Error ? e.message : "Could not start chat");
+    }
+  }
+
+  useEffect(() => {
+    const text = initialPrompt?.trim();
+    if (!text || !workspaces.data?.personal.id || started.current) return;
+    started.current = true;
+    void startChat(text);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional one-shot
+  }, [initialPrompt, workspaces.data?.personal.id]);
+
+  async function send() {
+    const text = draft.trim();
+    if (!text || busy) return;
+    await startChat(text);
+  }
+
+  async function inferSpecialist() {
+    const text = draft.trim();
+    const workspaceId = workspaces.data?.personal.id;
+    if (!text || !workspaceId || busy) return;
+    setError(null);
+    setBoot({ text });
+    setDraft("");
+    try {
+      const { specialist, threadId } = await createSpecialist.mutateAsync({
+        workspaceId,
+        prompt: text,
+      });
+      void utils.thread.list.invalidate({
+        workspaceId: specialist.workspaceId,
+      });
+      router.replace(`/app/w/${specialist.workspaceId}/t/${threadId}`);
+    } catch (e) {
+      setBoot(null);
+      setError(e instanceof Error ? e.message : "Could not create specialist");
+    }
+  }
+
+  return (
+    <section className="bg-background relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      {studio ? (
+        <ChatThreadHeader
+          title={boot!.text.slice(0, 48)}
+          actions={
+            <ChatThreadMenu>
+              <DropdownMenuContent align="end" className="min-w-44">
+                <DropdownMenuItem onClick={() => router.push("/app")}>
+                  New chat
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </ChatThreadMenu>
+          }
+        />
+      ) : null}
+
+      <div
+        className={cn(
+          "mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col px-8 transition-[justify-content,gap,padding] duration-500 ease-out md:px-10",
+          studio
+            ? "justify-end gap-4 overflow-hidden pt-14 pb-6 md:pt-16"
+            : "items-center justify-center gap-6 py-8",
+        )}
+      >
+        {studio ? (
+          <div className="min-h-0 w-full flex-1 overflow-y-auto">
+            <div className="mx-auto flex max-w-3xl flex-col gap-3 py-2">
+              <Marker role="status" className="my-2">
+                <MarkerContent>Chat · atlas</MarkerContent>
+              </Marker>
+              <Message align="end">
+                <MessageContent>
+                  <Bubble variant="default">
+                    <BubbleContent className="max-w-[min(100%,24rem)]">
+                      {boot!.text}
+                    </BubbleContent>
+                  </Bubble>
+                  <MessageFooter className="gap-1">
+                    {formatTime(new Date())}
+                    <CheckCheck className="size-3.5" aria-hidden="true" />
+                  </MessageFooter>
+                </MessageContent>
+              </Message>
+              <Message align="start">
+                <MessageContent className="max-w-none">
+                  <AgentPendingReply
+                    label={
+                      createSpecialist.isPending
+                        ? "Inferring specialist…"
+                        : "thinking..."
+                    }
+                  />
+                </MessageContent>
+              </Message>
+            </div>
+          </div>
+        ) : (
+          <header className="flex max-w-xl flex-col items-center gap-2 text-center">
+            <h1 className="font-heading text-2xl font-normal tracking-tight md:text-3xl">
+              Ready when you are.
+            </h1>
+          </header>
+        )}
+
+        <div
+          className={cn(
+            "flex w-full flex-col gap-2",
+            studio && "relative z-10 shrink-0",
+          )}
+        >
+          {error && (
+            <p role="alert" className="text-destructive text-sm">
+              {error}
+            </p>
+          )}
+          <ChatComposer
+            value={draft}
+            onChange={setDraft}
+            onSubmit={() => void send()}
+            onSpecialist={() => void inferSpecialist()}
+            placeholder={studio ? "Message…" : "What should we work on?"}
+            disabled={busy || !workspaces.data}
+            studio={studio}
+          />
+        </div>
+      </div>
+    </section>
   );
 }

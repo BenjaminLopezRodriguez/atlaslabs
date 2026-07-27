@@ -503,7 +503,7 @@ An immutable specialist version exposed as an internal service or API.
 
 The front page at `atlaslabs.id` is centered on one prompt box:
 
-> What should your Atlas become an expert in?
+> Atlas
 
 Example placeholder prompts:
 

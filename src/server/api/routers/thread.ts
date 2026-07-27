@@ -37,6 +37,32 @@ export const threadRouter = createTRPCRouter({
       });
     }),
 
+  /** Open a blank chat thread in a workspace (ChatGPT-style "New chat"). */
+  create: protectedProcedure
+    .input(
+      z.object({
+        workspaceId: z.string(),
+        title: z.string().min(1).max(256).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await requireWorkspaceAccess(
+        ctx.db,
+        ctx.user.id,
+        input.workspaceId,
+        "operator",
+      );
+      const [thread] = await ctx.db
+        .insert(threads)
+        .values({
+          workspaceId: input.workspaceId,
+          title: input.title ?? "New chat",
+          createdByUserId: ctx.user.id,
+        })
+        .returning();
+      return thread!;
+    }),
+
   messages: protectedProcedure
     .input(z.object({ threadId: z.string() }))
     .query(async ({ ctx, input }) => {
@@ -52,6 +78,7 @@ export const threadRouter = createTRPCRouter({
   /**
    * Post a user message. When the thread is bound to a specialist, a run is
    * queued; the worker streams status via run events and posts the reply.
+   * Also renames blank "New chat" threads from the first message.
    */
   post: protectedProcedure
     .input(
@@ -73,6 +100,17 @@ export const threadRouter = createTRPCRouter({
           content: input.content,
         })
         .returning();
+
+      if (thread.title === "New chat") {
+        const title =
+          input.content.length > 60
+            ? `${input.content.slice(0, 57).trimEnd()}…`
+            : input.content;
+        await ctx.db
+          .update(threads)
+          .set({ title })
+          .where(eq(threads.id, thread.id));
+      }
 
       let runId: string | null = null;
       if (thread.specialistId) {

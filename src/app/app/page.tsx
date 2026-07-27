@@ -1,18 +1,14 @@
-import { PromptBox } from "@/components/atlas/prompt-box";
+import { ChatHome } from "@/app/app/w/[workspaceId]/t/[threadId]/chat-thread";
 
 /**
- * Signed-in home. Workspace navigation lives in the shell sidebar, so this
- * pane is the composer itself — same entry point as the marketing hero.
+ * Signed-in home — manycat-style center composer that morphs into a thread
+ * on first send. Optional ?prompt= auto-starts (marketing return path).
  */
-export default function AppHome() {
-  return (
-    <div className="mx-auto flex min-h-full w-full max-w-2xl flex-col justify-center px-6 py-10">
-      <h1 className="text-foreground text-center text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
-        What should your Atlas become an expert in?
-      </h1>
-      <div className="mt-6 w-full">
-        <PromptBox />
-      </div>
-    </div>
-  );
+export default async function AppHome({
+  searchParams,
+}: {
+  searchParams: Promise<{ prompt?: string }>;
+}) {
+  const { prompt } = await searchParams;
+  return <ChatHome initialPrompt={prompt?.trim() ?? undefined} />;
 }

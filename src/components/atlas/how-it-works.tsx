@@ -70,22 +70,18 @@ const agentListings: Listing[] = [
 
 const steps = [
   {
-    index: "01",
     title: "Browse",
     body: "Search datasets and specialist agents by domain, format, and terms — with clear provenance and pricing.",
   },
   {
-    index: "02",
     title: "License",
     body: "Buy access with usage rights you can trust. Creators set the terms; Atlas handles delivery and metering.",
   },
   {
-    index: "03",
     title: "Connect",
     body: "Pull data via API or drop agents into your workflows. Swap specialists without rebuilding the stack.",
   },
   {
-    index: "04",
     title: "Publish",
     body: "List your own datasets and agents. Reach buyers, track usage, and earn when your work gets used.",
   },
@@ -108,10 +104,7 @@ export function HowItWorks() {
     >
       <div className="mm-shell">
         <div className="max-w-2xl">
-          <p className="text-signal text-[13px] font-medium tracking-tight">
-            How it works
-          </p>
-          <h2 id="how-h" className="mm-title text-foreground mt-3">
+          <h2 id="how-h" className="mm-title text-foreground">
             From listing to workflow.
           </h2>
         </div>
@@ -119,21 +112,13 @@ export function HowItWorks() {
         {/* Divided feature rows — minimachines cue */}
         <div className="divide-border border-border mt-14 divide-y border-y">
           {steps.map((step) => (
-            <article
-              key={step.index}
-              className="grid gap-3 py-8 sm:grid-cols-[5rem_1fr] sm:gap-8"
-            >
-              <span className="text-muted-foreground font-mono text-[12px] tracking-tight">
-                {step.index}
-              </span>
-              <div>
-                <h3 className="text-foreground text-[15px] font-medium tracking-tight">
-                  {step.title}
-                </h3>
-                <p className="text-muted-foreground mt-2 max-w-md text-sm leading-relaxed">
-                  {step.body}
-                </p>
-              </div>
+            <article key={step.title} className="py-8">
+              <h3 className="text-foreground text-[15px] font-medium tracking-tight">
+                {step.title}
+              </h3>
+              <p className="text-muted-foreground mt-2 max-w-md text-sm leading-relaxed">
+                {step.body}
+              </p>
             </article>
           ))}
         </div>

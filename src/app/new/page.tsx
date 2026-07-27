@@ -1,26 +1,15 @@
 import { redirect } from "next/navigation";
 
-import { WorkspaceChooser } from "@/app/new/workspace-chooser";
-
-export default async function NewSpecialistPage({
+/**
+ * Legacy entry from the marketing prompt box / AuthKit return path.
+ * The chooser now lives inside the signed-in app shell.
+ */
+export default async function NewSpecialistRedirect({
   searchParams,
 }: {
   searchParams: Promise<{ prompt?: string }>;
 }) {
   const { prompt } = await searchParams;
-  if (!prompt?.trim()) redirect("/");
-
-  return (
-    <main className="bg-background text-foreground min-h-svh">
-      <div className="mx-auto max-w-xl px-4 pt-20 pb-16">
-        <h1 className="text-xl font-medium tracking-tight">
-          Where should this specialist live?
-        </h1>
-        <blockquote className="border-border text-muted-foreground mt-4 border-l-2 pl-3 text-sm leading-relaxed">
-          {prompt}
-        </blockquote>
-        <WorkspaceChooser prompt={prompt} />
-      </div>
-    </main>
-  );
+  if (!prompt?.trim()) redirect("/app");
+  redirect(`/app/new?prompt=${encodeURIComponent(prompt)}`);
 }

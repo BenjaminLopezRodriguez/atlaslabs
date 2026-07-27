@@ -18,7 +18,7 @@ export function WorkspaceView({ workspaceId }: { workspaceId: string }) {
   }
 
   return (
-    <div className="text-foreground">
+    <div className="text-foreground min-h-0 flex-1 overflow-y-auto">
       <header className="border-border flex items-center justify-between border-b px-4 py-3">
         <div className="flex items-center gap-3">
           {/* Sidebar covers this at md+; keep an escape hatch while it's hidden. */}
@@ -64,8 +64,8 @@ export function WorkspaceView({ workspaceId }: { workspaceId: string }) {
             {specialists.data?.length === 0 && (
               <li className="text-muted-foreground text-sm">
                 No specialists yet.{" "}
-                <Link href="/" className="underline">
-                  Start one from the homepage prompt.
+                <Link href="/app" className="underline">
+                  Start one from the composer.
                 </Link>
               </li>
             )}

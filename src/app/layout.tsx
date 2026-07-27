@@ -1,7 +1,7 @@
 import "@/styles/globals.css";
 
 import { type Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Libre_Baskerville } from "next/font/google";
 
 import { AuthKitProvider } from "@workos-inc/authkit-nextjs/components";
 
@@ -17,6 +17,14 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   subsets: ["latin"],
   variable: "--font-geist-mono",
+  display: "swap",
+});
+
+/** Display serif for headlines — https://fonts.google.com/specimen/Libre+Baskerville */
+const libreBaskerville = Libre_Baskerville({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-heading",
   display: "swap",
 });
 
@@ -36,6 +44,7 @@ export default function RootLayout({
       className={cn(
         geistSans.variable,
         geistMono.variable,
+        libreBaskerville.variable,
         geistSans.className,
         "antialiased",
       )}
