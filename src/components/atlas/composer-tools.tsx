@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Boxes,
   ChevronDown,
   GitBranch,
   Image as ImageIcon,
@@ -257,6 +258,114 @@ export function ModelPicker({
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+export type SpaceOption = {
+  id: string;
+  slug: string;
+  status: string;
+  workspaceId: string;
+};
+
+/**
+ * The composer's space control — where the specialist bolt used to be.
+ *
+ * Signed out it is a sign-in link, because picking a space is meaningless
+ * without an account and a disabled control that explains nothing is worse
+ * than a door. Signed in it lists the spaces you are in; choosing one binds
+ * the prompt to that machine.
+ */
+export function SpacePicker({
+  spaces,
+  value,
+  onChange,
+  signedIn,
+  disabled,
+  compact = false,
+}: {
+  spaces: SpaceOption[];
+  value: string | null;
+  onChange: (next: string | null) => void;
+  signedIn: boolean;
+  disabled?: boolean;
+  /** Icon-only, for the tight landing composer. */
+  compact?: boolean;
+}) {
+  const selected = spaces.find((s) => s.id === value) ?? null;
+
+  if (!signedIn) {
+    return (
+      <a
+        href="/sign-in"
+        className={cn(
+          "flex h-7 items-center gap-1.5 rounded-full border border-transparent px-2.5 text-xs font-medium transition-colors",
+          "text-muted-foreground hover:text-foreground hover:bg-muted",
+        )}
+      >
+        <Boxes className="size-3.5" aria-hidden="true" />
+        Sign in
+      </a>
+    );
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        disabled={disabled}
+        aria-label={selected ? `Space: ${selected.slug}` : "Choose a space"}
+        title={selected ? `Space: ${selected.slug}` : "Choose a space"}
+        className={cn(
+          "flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium transition-colors outline-none disabled:opacity-40",
+          selected
+            ? "border-primary/40 bg-primary/10 text-primary"
+            : "text-muted-foreground hover:text-foreground border-transparent",
+        )}
+      >
+        <Boxes className="size-3.5" aria-hidden="true" />
+        {compact && !selected ? null : (
+          <span className="max-w-32 truncate">
+            {selected ? selected.slug : "Space"}
+          </span>
+        )}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-56">
+        {spaces.length === 0 ? (
+          <p className="text-muted-foreground px-3 py-3 text-xs leading-5">
+            No spaces yet. Create one with{" "}
+            <code className="font-mono">atlas machine create</code>, or from{" "}
+            <a href="/app/spaces" className="underline underline-offset-2">
+              Spaces
+            </a>
+            .
+          </p>
+        ) : (
+          <>
+            <DropdownMenuRadioGroup
+              value={value ?? ""}
+              onValueChange={(next: string) => onChange(next ? next : null)}
+            >
+              {spaces.map((s) => (
+                <DropdownMenuRadioItem key={s.id} value={s.id}>
+                  <span className="truncate font-mono text-xs">{s.slug}</span>
+                  <span className="text-muted-foreground ml-auto pl-2 text-[11px]">
+                    {s.status}
+                  </span>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+            {selected ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => onChange(null)}>
+                  Clear
+                </DropdownMenuItem>
+              </>
+            ) : null}
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

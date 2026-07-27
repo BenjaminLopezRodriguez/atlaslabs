@@ -1,0 +1,2 @@
+ALTER TABLE "atlas_thread" ADD COLUMN "machineId" varchar(64);--> statement-breakpoint
+ALTER TABLE "atlas_thread" ADD CONSTRAINT "atlas_thread_machineId_atlas_machine_id_fk" FOREIGN KEY ("machineId") REFERENCES "public"."atlas_machine"("id") ON DELETE set null ON UPDATE no action;

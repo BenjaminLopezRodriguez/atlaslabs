@@ -1,13 +1,15 @@
 "use client";
 
-import { ChevronDown, MoreVertical, Search, Send, Zap } from "lucide-react";
+import { ChevronDown, MoreVertical, Search, Send } from "lucide-react";
 import { type FormEvent, type ReactNode, useState } from "react";
 
 import {
   AttachMenu,
   EffortSlider,
   ModelPicker,
+  SpacePicker,
   type Attachment,
+  type SpaceOption,
 } from "@/components/atlas/composer-tools";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,18 +29,20 @@ export type ComposerSubmitOpts = {
 
 /**
  * Shared chat composer — manycat chrome: attach/model on home, research +
- * effort + send in-thread; Atlas Zap for specialist inference.
+ * effort + send in-thread, and the space control that binds a prompt to a
+ * machine.
  */
 export function ChatComposer({
   value,
   onChange,
   onSubmit,
-  onSpecialist,
   placeholder,
   disabled,
   submitLabel = "Send",
-  specialistLabel = "Create specialist from prompt",
-  specialistActive,
+  spaces,
+  spaceId,
+  onSpaceChange,
+  signedIn = false,
   /** Home landing: attach + model picker. Thread: research + effort left. */
   studio = false,
   footer,
@@ -48,12 +52,14 @@ export function ChatComposer({
   value: string;
   onChange: (next: string) => void;
   onSubmit: (opts: ComposerSubmitOpts) => void;
-  onSpecialist?: (opts: ComposerSubmitOpts) => void;
   placeholder?: string;
   disabled?: boolean;
   submitLabel?: string;
-  specialistLabel?: string;
-  specialistActive?: boolean;
+  /** Omit to hide the space control entirely. */
+  spaces?: SpaceOption[];
+  spaceId?: string | null;
+  onSpaceChange?: (next: string | null) => void;
+  signedIn?: boolean;
   studio?: boolean;
   footer?: ReactNode;
   className?: string;
@@ -146,28 +152,16 @@ export function ChatComposer({
               </DropdownMenuContent>
             </DropdownMenu>
           ) : null}
-          {onSpecialist ? (
-            <button
-              type="button"
-              onClick={() => onSpecialist(opts)}
-              disabled={disabled ?? !value.trim()}
-              aria-label={specialistLabel}
-              aria-pressed={specialistActive}
-              title={specialistLabel}
-              className={cn(
-                studio
-                  ? "flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium transition-colors disabled:opacity-40"
-                  : "flex size-8 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-40",
-                specialistActive
-                  ? "border-primary/40 bg-primary/10 text-primary"
-                  : studio
-                    ? "text-muted-foreground hover:text-foreground border-transparent"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-              )}
-            >
-              <Zap className="size-3.5" aria-hidden="true" />
-              {studio ? "Specialist" : null}
-            </button>
+          {/* Where the specialist bolt used to be: pick the space to work in. */}
+          {spaces ? (
+            <SpacePicker
+              spaces={spaces}
+              value={spaceId ?? null}
+              onChange={onSpaceChange ?? (() => undefined)}
+              signedIn={signedIn}
+              disabled={disabled}
+              compact={!studio}
+            />
           ) : null}
           {footer}
         </div>

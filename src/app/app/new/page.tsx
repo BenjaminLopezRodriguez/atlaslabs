@@ -21,7 +21,7 @@ export default async function NewSpecialistPage({
           {ATLAS_PROMPT_HEADER}
         </h1>
         <div className="mt-6 w-full">
-          <PromptBox chatHref="/app/new" specialistHref="/app/new" />
+          <PromptBox chatHref="/app/new" />
         </div>
       </div>
     );

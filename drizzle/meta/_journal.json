@@ -36,6 +36,13 @@
       "when": 1785135329452,
       "tag": "0004_last_hex",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785152804470,
+      "tag": "0005_cool_pride",
+      "breakpoints": true
     }
   ]
 }

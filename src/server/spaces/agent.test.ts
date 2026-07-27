@@ -1,0 +1,155 @@
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import test, { after, afterEach } from "node:test";
+
+process.env.ATLAS_MACHINE_DRIVER = "mock";
+
+import { eq, inArray } from "drizzle-orm";
+
+import { db } from "@/server/db";
+import { machines, users, workspaces } from "@/server/db/schema";
+import { createMachine, getMachineFile } from "@/server/machines/store";
+import { runSpaceAgent } from "@/server/spaces/agent";
+
+const owner = `user_agent_${randomUUID().slice(0, 8)}`;
+const realFetch = globalThis.fetch;
+const realKey = process.env.ANTHROPIC_API_KEY;
+
+void afterEach(() => {
+  globalThis.fetch = realFetch;
+  if (realKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+  else process.env.ANTHROPIC_API_KEY = realKey;
+});
+
+void after(async () => {
+  const ws = await db.query.workspaces.findMany({
+    where: eq(workspaces.userId, owner),
+  });
+  const ids = ws.map((w) => w.id);
+  if (ids.length) {
+    await db.delete(machines).where(inArray(machines.workspaceId, ids));
+  }
+  await db.delete(workspaces).where(eq(workspaces.userId, owner));
+  await db.delete(users).where(inArray(users.id, [owner]));
+  process.exit(0);
+});
+
+async function seedMachine() {
+  await db
+    .insert(users)
+    .values({ id: owner, email: `${owner}@test.local` })
+    .onConflictDoNothing();
+  return createMachine({
+    userId: owner,
+    slug: `agent-${randomUUID().slice(0, 6)}`,
+  });
+}
+
+/** Queue of Anthropic responses, returned one per turn. */
+function stubModel(turns: { content: unknown[]; stop_reason: string }[]) {
+  process.env.ANTHROPIC_API_KEY = "test-key";
+  const seen: unknown[] = [];
+  let i = 0;
+  globalThis.fetch = ((_url: string, init: { body: string }) => {
+    seen.push(JSON.parse(init.body));
+    const turn = turns[Math.min(i++, turns.length - 1)]!;
+    return Promise.resolve(new Response(JSON.stringify(turn), { status: 200 }));
+  }) as unknown as typeof fetch;
+  return { requests: seen, count: () => i };
+}
+
+const text = (t: string) => ({ type: "text", text: t });
+const toolUse = (name: string, input: Record<string, unknown>) => ({
+  type: "tool_use",
+  id: `tu_${randomUUID().slice(0, 8)}`,
+  name,
+  input,
+});
+
+void test("a write_file tool call actually lands on the machine", async () => {
+  const machine = await seedMachine();
+  stubModel([
+    {
+      content: [toolUse("write_file", { path: "app.js", content: "console.log(1)" })],
+      stop_reason: "tool_use",
+    },
+    { content: [text("Wrote app.js.")], stop_reason: "end_turn" },
+  ]);
+
+  const res = await runSpaceAgent({
+    machine,
+    prompt: "create app.js",
+    userId: owner,
+  });
+
+  assert.equal(res.text, "Wrote app.js.");
+  assert.deepEqual(
+    res.steps.map((s) => [s.tool, s.ok]),
+    [["write_file", true]],
+  );
+
+  // The point of the whole feature: the file is really there.
+  const bytes = await getMachineFile(machine, "app.js");
+  assert.equal(Buffer.from(bytes!).toString("utf8"), "console.log(1)");
+});
+
+void test("a failing tool is reported back instead of throwing", async () => {
+  const machine = await seedMachine();
+  stubModel([
+    { content: [toolUse("read_file", { path: "nope.txt" })], stop_reason: "tool_use" },
+    { content: [text("That file does not exist.")], stop_reason: "end_turn" },
+  ]);
+
+  const res = await runSpaceAgent({
+    machine,
+    prompt: "read nope.txt",
+    userId: owner,
+  });
+
+  assert.equal(res.steps[0]?.ok, false);
+  assert.equal(res.truncated, false);
+  assert.equal(res.text, "That file does not exist.");
+});
+
+void test("the loop stops rather than spinning forever", async () => {
+  const machine = await seedMachine();
+  // A model that only ever calls tools would loop until the cap.
+  const stub = stubModel([
+    { content: [toolUse("run_command", { command: "true" })], stop_reason: "tool_use" },
+  ]);
+
+  const res = await runSpaceAgent({
+    machine,
+    prompt: "loop forever",
+    userId: owner,
+  });
+
+  assert.equal(res.truncated, true);
+  assert.equal(stub.count(), 12);
+  assert.match(res.text, /Stopped after 12 steps/);
+});
+
+void test("an unwritable oversize file is refused, not truncated", async () => {
+  const machine = await seedMachine();
+  stubModel([
+    {
+      content: [
+        toolUse("write_file", { path: "big.txt", content: "x".repeat(600 * 1024) }),
+      ],
+      stop_reason: "tool_use",
+    },
+    { content: [text("Too big.")], stop_reason: "end_turn" },
+  ]);
+
+  const res = await runSpaceAgent({ machine, prompt: "write big", userId: owner });
+  assert.equal(res.steps[0]?.ok, false);
+  assert.equal(await getMachineFile(machine, "big.txt"), null);
+});
+
+void test("with no API key it degrades to the stub instead of failing", async () => {
+  const machine = await seedMachine();
+  delete process.env.ANTHROPIC_API_KEY;
+  const res = await runSpaceAgent({ machine, prompt: "do a thing", userId: owner });
+  assert.equal(res.steps.length, 0);
+  assert.match(res.text, /stub model/);
+});

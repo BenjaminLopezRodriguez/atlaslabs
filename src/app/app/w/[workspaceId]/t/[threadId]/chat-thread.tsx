@@ -7,6 +7,7 @@ import { CheckCheck } from "lucide-react";
 
 import { ChatComposer, ChatThreadMenu } from "@/components/atlas/chat-composer";
 import { ChatThreadHeader } from "@/components/atlas/chat-thread-header";
+import { SpacePreviewLink } from "@/components/atlas/space-preview-link";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import {
   DropdownMenuContent,
@@ -201,6 +202,7 @@ export function ChatThread({
       router.push(`/app/w/${specialist.workspaceId}/t/${nextThreadId}`);
     },
   });
+  const spaces = api.thread.spaces.useQuery({ workspaceId });
 
   const messages = q.data?.messages ?? [];
   const studio = messages.length > 0 || Boolean(optimistic);
@@ -223,12 +225,6 @@ export function ChatThread({
     post.mutate({ threadId, content });
   }
 
-  function inferSpecialist() {
-    const content = draft.trim();
-    if (!content || busy) return;
-    createSpecialist.mutate({ workspaceId, prompt: content });
-  }
-
   if (q.isLoading) {
     return <p className="text-muted-foreground px-6 py-10 text-sm">Loading…</p>;
   }
@@ -242,6 +238,7 @@ export function ChatThread({
 
   const title = q.data?.thread.title ?? "Chat";
   const kind = q.data?.thread.specialistId ? "specialist" : "chat";
+  const boundMachineId = q.data?.thread.machineId ?? null;
 
   return (
     <section className="bg-background relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
@@ -257,18 +254,23 @@ export function ChatThread({
             </Link>
           }
           actions={
-            <ChatThreadMenu>
-              <DropdownMenuContent align="end" className="min-w-44">
-                <DropdownMenuItem
-                  onClick={() => router.push(`/app/w/${workspaceId}`)}
-                >
-                  Workspace
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push("/app")}>
-                  New chat
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </ChatThreadMenu>
+            <>
+              {boundMachineId ? (
+                <SpacePreviewLink machineId={boundMachineId} />
+              ) : null}
+              <ChatThreadMenu>
+                <DropdownMenuContent align="end" className="min-w-44">
+                  <DropdownMenuItem
+                    onClick={() => router.push(`/app/w/${workspaceId}`)}
+                  >
+                    Workspace
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => router.push("/app")}>
+                    New chat
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </ChatThreadMenu>
+            </>
           }
         />
       ) : null}
@@ -387,10 +389,21 @@ export function ChatThread({
             value={draft}
             onChange={setDraft}
             onSubmit={send}
-            onSpecialist={inferSpecialist}
-            placeholder={studio ? "Message…" : "What should we work on?"}
+            placeholder={
+              boundMachineId
+                ? "Change a file in this space…"
+                : studio
+                  ? "Message…"
+                  : "What should we work on?"
+            }
             disabled={busy}
             studio={studio}
+            spaces={spaces.data ?? []}
+            spaceId={boundMachineId}
+            /* Fixed once the thread exists — the transcript records changes to
+               one machine, so re-pointing it would falsify earlier messages. */
+            onSpaceChange={undefined}
+            signedIn
           />
         </div>
       </div>
@@ -402,7 +415,13 @@ export function ChatThread({
  * Signed-in home composer. First send morphs into a thread (center → bottom),
  * then navigates to the persisted thread URL.
  */
-export function ChatHome({ initialPrompt }: { initialPrompt?: string }) {
+export function ChatHome({
+  initialPrompt,
+  initialSpaceId,
+}: {
+  initialPrompt?: string;
+  initialSpaceId?: string;
+}) {
   const router = useRouter();
   const utils = api.useUtils();
   const [draft, setDraft] = useState(initialPrompt ?? "");
@@ -410,9 +429,11 @@ export function ChatHome({ initialPrompt }: { initialPrompt?: string }) {
     initialPrompt?.trim() ? { text: initialPrompt.trim() } : null,
   );
   const [error, setError] = useState<string | null>(null);
+  const [spaceId, setSpaceId] = useState<string | null>(initialSpaceId ?? null);
   const started = useRef(false);
 
   const workspaces = api.workspace.list.useQuery();
+  const spaces = api.thread.spaces.useQuery();
   const createThread = api.thread.create.useMutation();
   const post = api.thread.post.useMutation();
   const createSpecialist = api.specialist.createFromPrompt.useMutation();
@@ -422,13 +443,19 @@ export function ChatHome({ initialPrompt }: { initialPrompt?: string }) {
     createThread.isPending || post.isPending || createSpecialist.isPending;
 
   async function startChat(text: string) {
-    const workspaceId = workspaces.data?.personal.id;
+    // A space-bound thread must live in that space's workspace, not blindly in
+    // the personal one, or `post` would reject the pairing.
+    const space = spaces.data?.find((s) => s.id === spaceId) ?? null;
+    const workspaceId = space?.workspaceId ?? workspaces.data?.personal.id;
     if (!workspaceId) return;
     setError(null);
     setBoot({ text });
     setDraft("");
     try {
-      const thread = await createThread.mutateAsync({ workspaceId });
+      const thread = await createThread.mutateAsync({
+        workspaceId,
+        machineId: space?.id,
+      });
       await post.mutateAsync({ threadId: thread.id, content: text });
       void utils.thread.list.invalidate({ workspaceId });
       router.replace(`/app/w/${workspaceId}/t/${thread.id}`);
@@ -441,37 +468,17 @@ export function ChatHome({ initialPrompt }: { initialPrompt?: string }) {
   useEffect(() => {
     const text = initialPrompt?.trim();
     if (!text || !workspaces.data?.personal.id || started.current) return;
+    // A ?space= from the landing needs its workspace resolved before we start.
+    if (initialSpaceId && !spaces.data) return;
     started.current = true;
     void startChat(text);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional one-shot
-  }, [initialPrompt, workspaces.data?.personal.id]);
+  }, [initialPrompt, workspaces.data?.personal.id, spaces.data]);
 
   async function send() {
     const text = draft.trim();
     if (!text || busy) return;
     await startChat(text);
-  }
-
-  async function inferSpecialist() {
-    const text = draft.trim();
-    const workspaceId = workspaces.data?.personal.id;
-    if (!text || !workspaceId || busy) return;
-    setError(null);
-    setBoot({ text });
-    setDraft("");
-    try {
-      const { specialist, threadId } = await createSpecialist.mutateAsync({
-        workspaceId,
-        prompt: text,
-      });
-      void utils.thread.list.invalidate({
-        workspaceId: specialist.workspaceId,
-      });
-      router.replace(`/app/w/${specialist.workspaceId}/t/${threadId}`);
-    } catch (e) {
-      setBoot(null);
-      setError(e instanceof Error ? e.message : "Could not create specialist");
-    }
   }
 
   return (
@@ -554,10 +561,19 @@ export function ChatHome({ initialPrompt }: { initialPrompt?: string }) {
             value={draft}
             onChange={setDraft}
             onSubmit={() => void send()}
-            onSpecialist={() => void inferSpecialist()}
-            placeholder={studio ? "Message…" : "What should we work on?"}
+            placeholder={
+              spaceId
+                ? "Change a file in this space…"
+                : studio
+                  ? "Message…"
+                  : "What should we work on?"
+            }
             disabled={busy || !workspaces.data}
             studio={studio}
+            spaces={spaces.data ?? []}
+            spaceId={spaceId}
+            onSpaceChange={setSpaceId}
+            signedIn
           />
         </div>
       </div>

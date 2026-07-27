@@ -1,0 +1,3868 @@
+{
+  "id": "c500d3c1-2da3-492b-90b3-7d27b961a81a",
+  "prevId": "2cbea52c-3989-491a-a7c5-1d4983a30f03",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.atlas_api_invocation": {
+      "name": "atlas_api_invocation",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "serviceKeyId": {
+          "name": "serviceKeyId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "runId": {
+          "name": "runId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "endpoint": {
+          "name": "endpoint",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "statusCode": {
+          "name": "statusCode",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "api_invocation_key_idx": {
+          "name": "api_invocation_key_idx",
+          "columns": [
+            {
+              "expression": "serviceKeyId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "atlas_api_invocation_serviceKeyId_atlas_service_key_id_fk": {
+          "name": "atlas_api_invocation_serviceKeyId_atlas_service_key_id_fk",
+          "tableFrom": "atlas_api_invocation",
+          "tableTo": "atlas_service_key",
+          "columnsFrom": [
+            "serviceKeyId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_artifact": {
+      "name": "atlas_artifact",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "runId": {
+          "name": "runId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "contentType": {
+          "name": "contentType",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'text/plain'"
+        },
+        "content": {
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "storageKey": {
+          "name": "storageKey",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bytes": {
+          "name": "bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "artifact_run_idx": {
+          "name": "artifact_run_idx",
+          "columns": [
+            {
+              "expression": "runId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "atlas_artifact_runId_atlas_run_id_fk": {
+          "name": "atlas_artifact_runId_atlas_run_id_fk",
+          "tableFrom": "atlas_artifact",
+          "tableTo": "atlas_run",
+          "columnsFrom": [
+            "runId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_audit_event": {
+      "name": "atlas_audit_event",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "groupId": {
+          "name": "groupId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "userId": {
+          "name": "userId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "serviceKeyId": {
+          "name": "serviceKeyId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "deviceId": {
+          "name": "deviceId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "action": {
+          "name": "action",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "detail": {
+          "name": "detail",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "audit_group_idx": {
+          "name": "audit_group_idx",
+          "columns": [
+            {
+              "expression": "groupId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "audit_action_idx": {
+          "name": "audit_action_idx",
+          "columns": [
+            {
+              "expression": "action",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_cli_token": {
+      "name": "atlas_cli_token",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tokenHash": {
+          "name": "tokenHash",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tokenPrefix": {
+          "name": "tokenPrefix",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "deviceId": {
+          "name": "deviceId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "label": {
+          "name": "label",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Atlas CLI'"
+        },
+        "lastUsedAt": {
+          "name": "lastUsedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revokedAt": {
+          "name": "revokedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "cli_token_hash_idx": {
+          "name": "cli_token_hash_idx",
+          "columns": [
+            {
+              "expression": "tokenHash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "cli_token_user_idx": {
+          "name": "cli_token_user_idx",
+          "columns": [
+            {
+              "expression": "userId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "atlas_cli_token_userId_atlas_user_id_fk": {
+          "name": "atlas_cli_token_userId_atlas_user_id_fk",
+          "tableFrom": "atlas_cli_token",
+          "tableTo": "atlas_user",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_cli_token_deviceId_atlas_device_id_fk": {
+          "name": "atlas_cli_token_deviceId_atlas_device_id_fk",
+          "tableFrom": "atlas_cli_token",
+          "tableTo": "atlas_device",
+          "columnsFrom": [
+            "deviceId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_correction": {
+      "name": "atlas_correction",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "specialistId": {
+          "name": "specialistId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "runId": {
+          "name": "runId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "messageId": {
+          "name": "messageId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "replacement": {
+          "name": "replacement",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "promotedTo": {
+          "name": "promotedTo",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "promotedAt": {
+          "name": "promotedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "promotedByUserId": {
+          "name": "promotedByUserId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdByUserId": {
+          "name": "createdByUserId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "correction_specialist_idx": {
+          "name": "correction_specialist_idx",
+          "columns": [
+            {
+              "expression": "specialistId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "atlas_correction_specialistId_atlas_specialist_id_fk": {
+          "name": "atlas_correction_specialistId_atlas_specialist_id_fk",
+          "tableFrom": "atlas_correction",
+          "tableTo": "atlas_specialist",
+          "columnsFrom": [
+            "specialistId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_correction_promotedByUserId_atlas_user_id_fk": {
+          "name": "atlas_correction_promotedByUserId_atlas_user_id_fk",
+          "tableFrom": "atlas_correction",
+          "tableTo": "atlas_user",
+          "columnsFrom": [
+            "promotedByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "atlas_correction_createdByUserId_atlas_user_id_fk": {
+          "name": "atlas_correction_createdByUserId_atlas_user_id_fk",
+          "tableFrom": "atlas_correction",
+          "tableTo": "atlas_user",
+          "columnsFrom": [
+            "createdByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_deployment": {
+      "name": "atlas_deployment",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "specialistId": {
+          "name": "specialistId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "specialistVersionId": {
+          "name": "specialistVersionId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "evaluationRunId": {
+          "name": "evaluationRunId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'active'"
+        },
+        "deployedByUserId": {
+          "name": "deployedByUserId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "deprecatedAt": {
+          "name": "deprecatedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "deployment_specialist_idx": {
+          "name": "deployment_specialist_idx",
+          "columns": [
+            {
+              "expression": "specialistId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "atlas_deployment_specialistId_atlas_specialist_id_fk": {
+          "name": "atlas_deployment_specialistId_atlas_specialist_id_fk",
+          "tableFrom": "atlas_deployment",
+          "tableTo": "atlas_specialist",
+          "columnsFrom": [
+            "specialistId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_deployment_specialistVersionId_atlas_specialist_version_id_fk": {
+          "name": "atlas_deployment_specialistVersionId_atlas_specialist_version_id_fk",
+          "tableFrom": "atlas_deployment",
+          "tableTo": "atlas_specialist_version",
+          "columnsFrom": [
+            "specialistVersionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "atlas_deployment_deployedByUserId_atlas_user_id_fk": {
+          "name": "atlas_deployment_deployedByUserId_atlas_user_id_fk",
+          "tableFrom": "atlas_deployment",
+          "tableTo": "atlas_user",
+          "columnsFrom": [
+            "deployedByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_device_code": {
+      "name": "atlas_device_code",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "userCode": {
+          "name": "userCode",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "deviceCodeHash": {
+          "name": "deviceCodeHash",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "approvedUserId": {
+          "name": "approvedUserId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mintedTokenId": {
+          "name": "mintedTokenId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "installationId": {
+          "name": "installationId",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "deviceKind": {
+          "name": "deviceKind",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "deviceLabel": {
+          "name": "deviceLabel",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "devicePlatform": {
+          "name": "devicePlatform",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "deviceAppVersion": {
+          "name": "deviceAppVersion",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "consumedAt": {
+          "name": "consumedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "deniedAt": {
+          "name": "deniedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expiresAt": {
+          "name": "expiresAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "device_code_hash_idx": {
+          "name": "device_code_hash_idx",
+          "columns": [
+            {
+              "expression": "deviceCodeHash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "device_code_user_idx": {
+          "name": "device_code_user_idx",
+          "columns": [
+            {
+              "expression": "userCode",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_device": {
+      "name": "atlas_device",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "installationId": {
+          "name": "installationId",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "platform": {
+          "name": "platform",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "appVersion": {
+          "name": "appVersion",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lastSeenAt": {
+          "name": "lastSeenAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revokedAt": {
+          "name": "revokedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "device_user_idx": {
+          "name": "device_user_idx",
+          "columns": [
+            {
+              "expression": "userId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "device_installation_idx": {
+          "name": "device_installation_idx",
+          "columns": [
+            {
+              "expression": "userId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "installationId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "atlas_device_userId_atlas_user_id_fk": {
+          "name": "atlas_device_userId_atlas_user_id_fk",
+          "tableFrom": "atlas_device",
+          "tableTo": "atlas_user",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_evaluation_case": {
+      "name": "atlas_evaluation_case",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "suiteId": {
+          "name": "suiteId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "input": {
+          "name": "input",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expectation": {
+          "name": "expectation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fromCorrectionId": {
+          "name": "fromCorrectionId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "critical": {
+          "name": "critical",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "createdByUserId": {
+          "name": "createdByUserId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "eval_case_suite_idx": {
+          "name": "eval_case_suite_idx",
+          "columns": [
+            {
+              "expression": "suiteId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "atlas_evaluation_case_suiteId_atlas_evaluation_suite_id_fk": {
+          "name": "atlas_evaluation_case_suiteId_atlas_evaluation_suite_id_fk",
+          "tableFrom": "atlas_evaluation_case",
+          "tableTo": "atlas_evaluation_suite",
+          "columnsFrom": [
+            "suiteId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_evaluation_case_createdByUserId_atlas_user_id_fk": {
+          "name": "atlas_evaluation_case_createdByUserId_atlas_user_id_fk",
+          "tableFrom": "atlas_evaluation_case",
+          "tableTo": "atlas_user",
+          "columnsFrom": [
+            "createdByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_evaluation_run": {
+      "name": "atlas_evaluation_run",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "suiteId": {
+          "name": "suiteId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "specialistVersionId": {
+          "name": "specialistVersionId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "passedCases": {
+          "name": "passedCases",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "failedCases": {
+          "name": "failedCases",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "results": {
+          "name": "results",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "startedByUserId": {
+          "name": "startedByUserId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "finishedAt": {
+          "name": "finishedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "eval_run_version_idx": {
+          "name": "eval_run_version_idx",
+          "columns": [
+            {
+              "expression": "specialistVersionId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "atlas_evaluation_run_suiteId_atlas_evaluation_suite_id_fk": {
+          "name": "atlas_evaluation_run_suiteId_atlas_evaluation_suite_id_fk",
+          "tableFrom": "atlas_evaluation_run",
+          "tableTo": "atlas_evaluation_suite",
+          "columnsFrom": [
+            "suiteId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_evaluation_run_specialistVersionId_atlas_specialist_version_id_fk": {
+          "name": "atlas_evaluation_run_specialistVersionId_atlas_specialist_version_id_fk",
+          "tableFrom": "atlas_evaluation_run",
+          "tableTo": "atlas_specialist_version",
+          "columnsFrom": [
+            "specialistVersionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_evaluation_run_startedByUserId_atlas_user_id_fk": {
+          "name": "atlas_evaluation_run_startedByUserId_atlas_user_id_fk",
+          "tableFrom": "atlas_evaluation_run",
+          "tableTo": "atlas_user",
+          "columnsFrom": [
+            "startedByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_evaluation_suite": {
+      "name": "atlas_evaluation_suite",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "specialistId": {
+          "name": "specialistId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdByUserId": {
+          "name": "createdByUserId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "eval_suite_specialist_idx": {
+          "name": "eval_suite_specialist_idx",
+          "columns": [
+            {
+              "expression": "specialistId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "atlas_evaluation_suite_specialistId_atlas_specialist_id_fk": {
+          "name": "atlas_evaluation_suite_specialistId_atlas_specialist_id_fk",
+          "tableFrom": "atlas_evaluation_suite",
+          "tableTo": "atlas_specialist",
+          "columnsFrom": [
+            "specialistId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_evaluation_suite_createdByUserId_atlas_user_id_fk": {
+          "name": "atlas_evaluation_suite_createdByUserId_atlas_user_id_fk",
+          "tableFrom": "atlas_evaluation_suite",
+          "tableTo": "atlas_user",
+          "columnsFrom": [
+            "createdByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_group": {
+      "name": "atlas_group",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "slug": {
+          "name": "slug",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdByUserId": {
+          "name": "createdByUserId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "group_slug_idx": {
+          "name": "group_slug_idx",
+          "columns": [
+            {
+              "expression": "slug",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "atlas_group_createdByUserId_atlas_user_id_fk": {
+          "name": "atlas_group_createdByUserId_atlas_user_id_fk",
+          "tableFrom": "atlas_group",
+          "tableTo": "atlas_user",
+          "columnsFrom": [
+            "createdByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_invitation": {
+      "name": "atlas_invitation",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "groupId": {
+          "name": "groupId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(320)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tokenHash": {
+          "name": "tokenHash",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "invitedByUserId": {
+          "name": "invitedByUserId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expiresAt": {
+          "name": "expiresAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "acceptedAt": {
+          "name": "acceptedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revokedAt": {
+          "name": "revokedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "invitation_token_idx": {
+          "name": "invitation_token_idx",
+          "columns": [
+            {
+              "expression": "tokenHash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "invitation_group_idx": {
+          "name": "invitation_group_idx",
+          "columns": [
+            {
+              "expression": "groupId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "atlas_invitation_groupId_atlas_group_id_fk": {
+          "name": "atlas_invitation_groupId_atlas_group_id_fk",
+          "tableFrom": "atlas_invitation",
+          "tableTo": "atlas_group",
+          "columnsFrom": [
+            "groupId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_invitation_invitedByUserId_atlas_user_id_fk": {
+          "name": "atlas_invitation_invitedByUserId_atlas_user_id_fk",
+          "tableFrom": "atlas_invitation",
+          "tableTo": "atlas_user",
+          "columnsFrom": [
+            "invitedByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_machine_exec": {
+      "name": "atlas_machine_exec",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "machineId": {
+          "name": "machineId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cmd": {
+          "name": "cmd",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cwd": {
+          "name": "cwd",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "exitCode": {
+          "name": "exitCode",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "stdout": {
+          "name": "stdout",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "stderr": {
+          "name": "stderr",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "durationMs": {
+          "name": "durationMs",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ranByUserId": {
+          "name": "ranByUserId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ranByDeviceId": {
+          "name": "ranByDeviceId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "machine_exec_machine_idx": {
+          "name": "machine_exec_machine_idx",
+          "columns": [
+            {
+              "expression": "machineId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "atlas_machine_exec_machineId_atlas_machine_id_fk": {
+          "name": "atlas_machine_exec_machineId_atlas_machine_id_fk",
+          "tableFrom": "atlas_machine_exec",
+          "tableTo": "atlas_machine",
+          "columnsFrom": [
+            "machineId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_machine_exec_ranByUserId_atlas_user_id_fk": {
+          "name": "atlas_machine_exec_ranByUserId_atlas_user_id_fk",
+          "tableFrom": "atlas_machine_exec",
+          "tableTo": "atlas_user",
+          "columnsFrom": [
+            "ranByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_machine": {
+      "name": "atlas_machine",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspaceId": {
+          "name": "workspaceId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "slug": {
+          "name": "slug",
+          "type": "varchar(63)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "templateId": {
+          "name": "templateId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'provisioning'"
+        },
+        "driver": {
+          "name": "driver",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'mock'"
+        },
+        "handle": {
+          "name": "handle",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "region": {
+          "name": "region",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ports": {
+          "name": "ports",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "createdByUserId": {
+          "name": "createdByUserId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdByDeviceId": {
+          "name": "createdByDeviceId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lastSeenAt": {
+          "name": "lastSeenAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "suspendedAt": {
+          "name": "suspendedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "terminatedAt": {
+          "name": "terminatedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "machine_slug_idx": {
+          "name": "machine_slug_idx",
+          "columns": [
+            {
+              "expression": "workspaceId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "slug",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "machine_workspace_idx": {
+          "name": "machine_workspace_idx",
+          "columns": [
+            {
+              "expression": "workspaceId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "atlas_machine_workspaceId_atlas_workspace_id_fk": {
+          "name": "atlas_machine_workspaceId_atlas_workspace_id_fk",
+          "tableFrom": "atlas_machine",
+          "tableTo": "atlas_workspace",
+          "columnsFrom": [
+            "workspaceId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_machine_createdByUserId_atlas_user_id_fk": {
+          "name": "atlas_machine_createdByUserId_atlas_user_id_fk",
+          "tableFrom": "atlas_machine",
+          "tableTo": "atlas_user",
+          "columnsFrom": [
+            "createdByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_membership": {
+      "name": "atlas_membership",
+      "schema": "",
+      "columns": {
+        "groupId": {
+          "name": "groupId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "membership_user_idx": {
+          "name": "membership_user_idx",
+          "columns": [
+            {
+              "expression": "userId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "atlas_membership_groupId_atlas_group_id_fk": {
+          "name": "atlas_membership_groupId_atlas_group_id_fk",
+          "tableFrom": "atlas_membership",
+          "tableTo": "atlas_group",
+          "columnsFrom": [
+            "groupId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_membership_userId_atlas_user_id_fk": {
+          "name": "atlas_membership_userId_atlas_user_id_fk",
+          "tableFrom": "atlas_membership",
+          "tableTo": "atlas_user",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "atlas_membership_groupId_userId_pk": {
+          "name": "atlas_membership_groupId_userId_pk",
+          "columns": [
+            "groupId",
+            "userId"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_memory": {
+      "name": "atlas_memory",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspaceId": {
+          "name": "workspaceId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "specialistId": {
+          "name": "specialistId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scope": {
+          "name": "scope",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "text": {
+          "name": "text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "promotedFromMemoryId": {
+          "name": "promotedFromMemoryId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdByUserId": {
+          "name": "createdByUserId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "memory_workspace_idx": {
+          "name": "memory_workspace_idx",
+          "columns": [
+            {
+              "expression": "workspaceId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "atlas_memory_workspaceId_atlas_workspace_id_fk": {
+          "name": "atlas_memory_workspaceId_atlas_workspace_id_fk",
+          "tableFrom": "atlas_memory",
+          "tableTo": "atlas_workspace",
+          "columnsFrom": [
+            "workspaceId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_memory_specialistId_atlas_specialist_id_fk": {
+          "name": "atlas_memory_specialistId_atlas_specialist_id_fk",
+          "tableFrom": "atlas_memory",
+          "tableTo": "atlas_specialist",
+          "columnsFrom": [
+            "specialistId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_memory_createdByUserId_atlas_user_id_fk": {
+          "name": "atlas_memory_createdByUserId_atlas_user_id_fk",
+          "tableFrom": "atlas_memory",
+          "tableTo": "atlas_user",
+          "columnsFrom": [
+            "createdByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_message": {
+      "name": "atlas_message",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "threadId": {
+          "name": "threadId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "seq": {
+          "name": "seq",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "authorUserId": {
+          "name": "authorUserId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "content": {
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "meta": {
+          "name": "meta",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "message_thread_seq_idx": {
+          "name": "message_thread_seq_idx",
+          "columns": [
+            {
+              "expression": "threadId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "seq",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "atlas_message_threadId_atlas_thread_id_fk": {
+          "name": "atlas_message_threadId_atlas_thread_id_fk",
+          "tableFrom": "atlas_message",
+          "tableTo": "atlas_thread",
+          "columnsFrom": [
+            "threadId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_message_authorUserId_atlas_user_id_fk": {
+          "name": "atlas_message_authorUserId_atlas_user_id_fk",
+          "tableFrom": "atlas_message",
+          "tableTo": "atlas_user",
+          "columnsFrom": [
+            "authorUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_ping": {
+      "name": "atlas_ping",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "machineId": {
+          "name": "machineId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "workspaceId": {
+          "name": "workspaceId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "question": {
+          "name": "question",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "context": {
+          "name": "context",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "answer": {
+          "name": "answer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "channel": {
+          "name": "channel",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "replyTokenHash": {
+          "name": "replyTokenHash",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "askedByUserId": {
+          "name": "askedByUserId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "askedByDeviceId": {
+          "name": "askedByDeviceId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "answeredByUserId": {
+          "name": "answeredByUserId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notifiedAt": {
+          "name": "notifiedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notifyError": {
+          "name": "notifyError",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expiresAt": {
+          "name": "expiresAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "answeredAt": {
+          "name": "answeredAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "ping_reply_token_idx": {
+          "name": "ping_reply_token_idx",
+          "columns": [
+            {
+              "expression": "replyTokenHash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "ping_machine_idx": {
+          "name": "ping_machine_idx",
+          "columns": [
+            {
+              "expression": "machineId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "atlas_ping_machineId_atlas_machine_id_fk": {
+          "name": "atlas_ping_machineId_atlas_machine_id_fk",
+          "tableFrom": "atlas_ping",
+          "tableTo": "atlas_machine",
+          "columnsFrom": [
+            "machineId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_ping_askedByUserId_atlas_user_id_fk": {
+          "name": "atlas_ping_askedByUserId_atlas_user_id_fk",
+          "tableFrom": "atlas_ping",
+          "tableTo": "atlas_user",
+          "columnsFrom": [
+            "askedByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_run_event": {
+      "name": "atlas_run_event",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "runId": {
+          "name": "runId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "seq": {
+          "name": "seq",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "run_event_seq_idx": {
+          "name": "run_event_seq_idx",
+          "columns": [
+            {
+              "expression": "runId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "seq",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "atlas_run_event_runId_atlas_run_id_fk": {
+          "name": "atlas_run_event_runId_atlas_run_id_fk",
+          "tableFrom": "atlas_run_event",
+          "tableTo": "atlas_run",
+          "columnsFrom": [
+            "runId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_run": {
+      "name": "atlas_run",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "specialistId": {
+          "name": "specialistId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "specialistVersionId": {
+          "name": "specialistVersionId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "threadId": {
+          "name": "threadId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "runtimeId": {
+          "name": "runtimeId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sourceSnapshot": {
+          "name": "sourceSnapshot",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'queued'"
+        },
+        "input": {
+          "name": "input",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "output": {
+          "name": "output",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error": {
+          "name": "error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "idempotencyKey": {
+          "name": "idempotencyKey",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "startedByUserId": {
+          "name": "startedByUserId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "serviceKeyId": {
+          "name": "serviceKeyId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "startedAt": {
+          "name": "startedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "finishedAt": {
+          "name": "finishedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "run_specialist_idx": {
+          "name": "run_specialist_idx",
+          "columns": [
+            {
+              "expression": "specialistId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "run_status_idx": {
+          "name": "run_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "run_idempotency_idx": {
+          "name": "run_idempotency_idx",
+          "columns": [
+            {
+              "expression": "specialistId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "idempotencyKey",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "atlas_run_specialistId_atlas_specialist_id_fk": {
+          "name": "atlas_run_specialistId_atlas_specialist_id_fk",
+          "tableFrom": "atlas_run",
+          "tableTo": "atlas_specialist",
+          "columnsFrom": [
+            "specialistId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_run_specialistVersionId_atlas_specialist_version_id_fk": {
+          "name": "atlas_run_specialistVersionId_atlas_specialist_version_id_fk",
+          "tableFrom": "atlas_run",
+          "tableTo": "atlas_specialist_version",
+          "columnsFrom": [
+            "specialistVersionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "atlas_run_threadId_atlas_thread_id_fk": {
+          "name": "atlas_run_threadId_atlas_thread_id_fk",
+          "tableFrom": "atlas_run",
+          "tableTo": "atlas_thread",
+          "columnsFrom": [
+            "threadId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "atlas_run_runtimeId_atlas_runtime_id_fk": {
+          "name": "atlas_run_runtimeId_atlas_runtime_id_fk",
+          "tableFrom": "atlas_run",
+          "tableTo": "atlas_runtime",
+          "columnsFrom": [
+            "runtimeId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "atlas_run_startedByUserId_atlas_user_id_fk": {
+          "name": "atlas_run_startedByUserId_atlas_user_id_fk",
+          "tableFrom": "atlas_run",
+          "tableTo": "atlas_user",
+          "columnsFrom": [
+            "startedByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_runtime": {
+      "name": "atlas_runtime",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'local'"
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'provisioning'"
+        },
+        "handle": {
+          "name": "handle",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "terminatedAt": {
+          "name": "terminatedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_service_key": {
+      "name": "atlas_service_key",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "groupId": {
+          "name": "groupId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "userId": {
+          "name": "userId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "specialistId": {
+          "name": "specialistId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "keyHash": {
+          "name": "keyHash",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "keyPrefix": {
+          "name": "keyPrefix",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scopes": {
+          "name": "scopes",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rateLimit": {
+          "name": "rateLimit",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 60
+        },
+        "expiresAt": {
+          "name": "expiresAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdByUserId": {
+          "name": "createdByUserId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lastUsedAt": {
+          "name": "lastUsedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revokedAt": {
+          "name": "revokedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "service_key_hash_idx": {
+          "name": "service_key_hash_idx",
+          "columns": [
+            {
+              "expression": "keyHash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "service_key_specialist_idx": {
+          "name": "service_key_specialist_idx",
+          "columns": [
+            {
+              "expression": "specialistId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "atlas_service_key_groupId_atlas_group_id_fk": {
+          "name": "atlas_service_key_groupId_atlas_group_id_fk",
+          "tableFrom": "atlas_service_key",
+          "tableTo": "atlas_group",
+          "columnsFrom": [
+            "groupId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_service_key_userId_atlas_user_id_fk": {
+          "name": "atlas_service_key_userId_atlas_user_id_fk",
+          "tableFrom": "atlas_service_key",
+          "tableTo": "atlas_user",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_service_key_specialistId_atlas_specialist_id_fk": {
+          "name": "atlas_service_key_specialistId_atlas_specialist_id_fk",
+          "tableFrom": "atlas_service_key",
+          "tableTo": "atlas_specialist",
+          "columnsFrom": [
+            "specialistId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_service_key_createdByUserId_atlas_user_id_fk": {
+          "name": "atlas_service_key_createdByUserId_atlas_user_id_fk",
+          "tableFrom": "atlas_service_key",
+          "tableTo": "atlas_user",
+          "columnsFrom": [
+            "createdByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_source_file": {
+      "name": "atlas_source_file",
+      "schema": "",
+      "columns": {
+        "sourceVersionId": {
+          "name": "sourceVersionId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "path": {
+          "name": "path",
+          "type": "varchar(1024)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "contentHash": {
+          "name": "contentHash",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bytes": {
+          "name": "bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content": {
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "atlas_source_file_sourceVersionId_atlas_source_version_id_fk": {
+          "name": "atlas_source_file_sourceVersionId_atlas_source_version_id_fk",
+          "tableFrom": "atlas_source_file",
+          "tableTo": "atlas_source_version",
+          "columnsFrom": [
+            "sourceVersionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "atlas_source_file_sourceVersionId_path_pk": {
+          "name": "atlas_source_file_sourceVersionId_path_pk",
+          "columns": [
+            "sourceVersionId",
+            "path"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_source_permission": {
+      "name": "atlas_source_permission",
+      "schema": "",
+      "columns": {
+        "sourceId": {
+          "name": "sourceId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "specialistId": {
+          "name": "specialistId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "grantedByUserId": {
+          "name": "grantedByUserId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "atlas_source_permission_sourceId_atlas_source_id_fk": {
+          "name": "atlas_source_permission_sourceId_atlas_source_id_fk",
+          "tableFrom": "atlas_source_permission",
+          "tableTo": "atlas_source",
+          "columnsFrom": [
+            "sourceId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_source_permission_specialistId_atlas_specialist_id_fk": {
+          "name": "atlas_source_permission_specialistId_atlas_specialist_id_fk",
+          "tableFrom": "atlas_source_permission",
+          "tableTo": "atlas_specialist",
+          "columnsFrom": [
+            "specialistId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_source_permission_grantedByUserId_atlas_user_id_fk": {
+          "name": "atlas_source_permission_grantedByUserId_atlas_user_id_fk",
+          "tableFrom": "atlas_source_permission",
+          "tableTo": "atlas_user",
+          "columnsFrom": [
+            "grantedByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "atlas_source_permission_sourceId_specialistId_pk": {
+          "name": "atlas_source_permission_sourceId_specialistId_pk",
+          "columns": [
+            "sourceId",
+            "specialistId"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_source_version": {
+      "name": "atlas_source_version",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "sourceId": {
+          "name": "sourceId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fileCount": {
+          "name": "fileCount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "totalBytes": {
+          "name": "totalBytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "contentHash": {
+          "name": "contentHash",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "syncedByUserId": {
+          "name": "syncedByUserId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "syncedByDeviceId": {
+          "name": "syncedByDeviceId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "source_version_idx": {
+          "name": "source_version_idx",
+          "columns": [
+            {
+              "expression": "sourceId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "version",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "atlas_source_version_sourceId_atlas_source_id_fk": {
+          "name": "atlas_source_version_sourceId_atlas_source_id_fk",
+          "tableFrom": "atlas_source_version",
+          "tableTo": "atlas_source",
+          "columnsFrom": [
+            "sourceId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_source_version_syncedByUserId_atlas_user_id_fk": {
+          "name": "atlas_source_version_syncedByUserId_atlas_user_id_fk",
+          "tableFrom": "atlas_source_version",
+          "tableTo": "atlas_user",
+          "columnsFrom": [
+            "syncedByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_source": {
+      "name": "atlas_source",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspaceId": {
+          "name": "workspaceId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "origin": {
+          "name": "origin",
+          "type": "varchar(1024)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "syncRules": {
+          "name": "syncRules",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "currentVersionId": {
+          "name": "currentVersionId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "addedByUserId": {
+          "name": "addedByUserId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revokedAt": {
+          "name": "revokedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "source_workspace_idx": {
+          "name": "source_workspace_idx",
+          "columns": [
+            {
+              "expression": "workspaceId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "atlas_source_workspaceId_atlas_workspace_id_fk": {
+          "name": "atlas_source_workspaceId_atlas_workspace_id_fk",
+          "tableFrom": "atlas_source",
+          "tableTo": "atlas_workspace",
+          "columnsFrom": [
+            "workspaceId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_source_addedByUserId_atlas_user_id_fk": {
+          "name": "atlas_source_addedByUserId_atlas_user_id_fk",
+          "tableFrom": "atlas_source",
+          "tableTo": "atlas_user",
+          "columnsFrom": [
+            "addedByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_specialist_version": {
+      "name": "atlas_specialist_version",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "specialistId": {
+          "name": "specialistId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "manifest": {
+          "name": "manifest",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "changeSummary": {
+          "name": "changeSummary",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdByUserId": {
+          "name": "createdByUserId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "specialist_version_idx": {
+          "name": "specialist_version_idx",
+          "columns": [
+            {
+              "expression": "specialistId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "version",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "atlas_specialist_version_specialistId_atlas_specialist_id_fk": {
+          "name": "atlas_specialist_version_specialistId_atlas_specialist_id_fk",
+          "tableFrom": "atlas_specialist_version",
+          "tableTo": "atlas_specialist",
+          "columnsFrom": [
+            "specialistId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_specialist_version_createdByUserId_atlas_user_id_fk": {
+          "name": "atlas_specialist_version_createdByUserId_atlas_user_id_fk",
+          "tableFrom": "atlas_specialist_version",
+          "tableTo": "atlas_user",
+          "columnsFrom": [
+            "createdByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_specialist": {
+      "name": "atlas_specialist",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspaceId": {
+          "name": "workspaceId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "slug": {
+          "name": "slug",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "purpose": {
+          "name": "purpose",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "state": {
+          "name": "state",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'draft'"
+        },
+        "currentVersionId": {
+          "name": "currentVersionId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdByUserId": {
+          "name": "createdByUserId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "specialist_workspace_idx": {
+          "name": "specialist_workspace_idx",
+          "columns": [
+            {
+              "expression": "workspaceId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "specialist_slug_idx": {
+          "name": "specialist_slug_idx",
+          "columns": [
+            {
+              "expression": "workspaceId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "slug",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "atlas_specialist_workspaceId_atlas_workspace_id_fk": {
+          "name": "atlas_specialist_workspaceId_atlas_workspace_id_fk",
+          "tableFrom": "atlas_specialist",
+          "tableTo": "atlas_workspace",
+          "columnsFrom": [
+            "workspaceId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_specialist_createdByUserId_atlas_user_id_fk": {
+          "name": "atlas_specialist_createdByUserId_atlas_user_id_fk",
+          "tableFrom": "atlas_specialist",
+          "tableTo": "atlas_user",
+          "columnsFrom": [
+            "createdByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_thread": {
+      "name": "atlas_thread",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspaceId": {
+          "name": "workspaceId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "specialistId": {
+          "name": "specialistId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "machineId": {
+          "name": "machineId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "title": {
+          "name": "title",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'New thread'"
+        },
+        "createdByUserId": {
+          "name": "createdByUserId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "thread_workspace_idx": {
+          "name": "thread_workspace_idx",
+          "columns": [
+            {
+              "expression": "workspaceId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "atlas_thread_workspaceId_atlas_workspace_id_fk": {
+          "name": "atlas_thread_workspaceId_atlas_workspace_id_fk",
+          "tableFrom": "atlas_thread",
+          "tableTo": "atlas_workspace",
+          "columnsFrom": [
+            "workspaceId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_thread_specialistId_atlas_specialist_id_fk": {
+          "name": "atlas_thread_specialistId_atlas_specialist_id_fk",
+          "tableFrom": "atlas_thread",
+          "tableTo": "atlas_specialist",
+          "columnsFrom": [
+            "specialistId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "atlas_thread_machineId_atlas_machine_id_fk": {
+          "name": "atlas_thread_machineId_atlas_machine_id_fk",
+          "tableFrom": "atlas_thread",
+          "tableTo": "atlas_machine",
+          "columnsFrom": [
+            "machineId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "atlas_thread_createdByUserId_atlas_user_id_fk": {
+          "name": "atlas_thread_createdByUserId_atlas_user_id_fk",
+          "tableFrom": "atlas_thread",
+          "tableTo": "atlas_user",
+          "columnsFrom": [
+            "createdByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_tool_definition": {
+      "name": "atlas_tool_definition",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "inputSchema": {
+          "name": "inputSchema",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "requiresApproval": {
+          "name": "requiresApproval",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "atlas_tool_definition_name_unique": {
+          "name": "atlas_tool_definition_name_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "name"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_tool_grant": {
+      "name": "atlas_tool_grant",
+      "schema": "",
+      "columns": {
+        "specialistId": {
+          "name": "specialistId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "toolId": {
+          "name": "toolId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "grantedByUserId": {
+          "name": "grantedByUserId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "atlas_tool_grant_specialistId_atlas_specialist_id_fk": {
+          "name": "atlas_tool_grant_specialistId_atlas_specialist_id_fk",
+          "tableFrom": "atlas_tool_grant",
+          "tableTo": "atlas_specialist",
+          "columnsFrom": [
+            "specialistId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_tool_grant_toolId_atlas_tool_definition_id_fk": {
+          "name": "atlas_tool_grant_toolId_atlas_tool_definition_id_fk",
+          "tableFrom": "atlas_tool_grant",
+          "tableTo": "atlas_tool_definition",
+          "columnsFrom": [
+            "toolId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_tool_grant_grantedByUserId_atlas_user_id_fk": {
+          "name": "atlas_tool_grant_grantedByUserId_atlas_user_id_fk",
+          "tableFrom": "atlas_tool_grant",
+          "tableTo": "atlas_user",
+          "columnsFrom": [
+            "grantedByUserId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "atlas_tool_grant_specialistId_toolId_pk": {
+          "name": "atlas_tool_grant_specialistId_toolId_pk",
+          "columns": [
+            "specialistId",
+            "toolId"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_user": {
+      "name": "atlas_user",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(320)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "image": {
+          "name": "image",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "atlas_user_email_unique": {
+          "name": "atlas_user_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.atlas_workspace": {
+      "name": "atlas_workspace",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "groupId": {
+          "name": "groupId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "workspace_user_idx": {
+          "name": "workspace_user_idx",
+          "columns": [
+            {
+              "expression": "userId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "workspace_group_idx": {
+          "name": "workspace_group_idx",
+          "columns": [
+            {
+              "expression": "groupId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "atlas_workspace_userId_atlas_user_id_fk": {
+          "name": "atlas_workspace_userId_atlas_user_id_fk",
+          "tableFrom": "atlas_workspace",
+          "tableTo": "atlas_user",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "atlas_workspace_groupId_atlas_group_id_fk": {
+          "name": "atlas_workspace_groupId_atlas_group_id_fk",
+          "tableFrom": "atlas_workspace",
+          "tableTo": "atlas_group",
+          "columnsFrom": [
+            "groupId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

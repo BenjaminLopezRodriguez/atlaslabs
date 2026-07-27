@@ -192,6 +192,17 @@ export const threads = createTable(
     specialistId: d.varchar({ length: 64 }).references(() => specialists.id, {
       onDelete: "set null",
     }),
+    /**
+     * The space this thread acts on, if any. Set from the composer's space
+     * picker and fixed for the thread's life: the transcript is a record of
+     * changes made to one machine, and re-pointing it mid-conversation would
+     * make earlier messages describe a different box.
+     *
+     * `set null` on delete — a stopped space leaves the conversation readable.
+     */
+    machineId: d.varchar({ length: 64 }).references(() => machines.id, {
+      onDelete: "set null",
+    }),
     title: d.varchar({ length: 256 }).notNull().default("New thread"),
     createdByUserId: d
       .varchar({ length: 64 })
