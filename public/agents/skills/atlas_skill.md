@@ -136,6 +136,14 @@ owner` will not invite someone to a machine called `--role`.
 The command prints the accept URL. If email delivery failed it says so and the
 link is the fallback — hand the link over rather than re-inviting.
 
+**The invitee must open that link before anything else works.** Accepting is
+what creates their membership; until then `atlas group use <slug>` reports
+`Unknown group "<slug>"`, because groups are listed through memberships. The
+link is bound to the invited address and expires in 7 days, so it has to be
+opened by whoever that email belongs to — forwarding it does not transfer it.
+Spaces can also be shared from the web UI at `/app/spaces`, which invites into
+the group that owns the space.
+
 ---
 
 ## The offload loop

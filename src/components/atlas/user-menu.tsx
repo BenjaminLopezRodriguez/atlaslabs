@@ -1,6 +1,6 @@
 "use client";
 
-import { CreditCard, LogOut, Settings } from "lucide-react";
+import { Boxes, CreditCard, LogOut, Settings } from "lucide-react";
 import Link from "next/link";
 
 import { signOutAction } from "@/app/auth/actions";
@@ -74,6 +74,13 @@ export function UserMenu({
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
 
+        <DropdownMenuItem
+          render={<Link href="/app/spaces" />}
+          className="cursor-pointer"
+        >
+          <Boxes />
+          Spaces
+        </DropdownMenuItem>
         <DropdownMenuItem
           render={<Link href="/app/settings" />}
           className="cursor-pointer"

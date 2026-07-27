@@ -108,7 +108,7 @@ export async function createMachine(
 
 export async function listMachines(
   userId: string,
-  opts: { workspaceId?: string | null } = {},
+  opts: { workspaceId?: string | null; includeStopped?: boolean } = {},
   db: Db = database,
 ): Promise<Machine[]> {
   // every workspace the caller can reach: their personal one plus their groups'
@@ -134,7 +134,11 @@ export async function listMachines(
   }
 
   return db.query.machines.findMany({
-    where: and(inArray(machines.workspaceId, ids), isNull(machines.terminatedAt)),
+    // The CLI wants live machines only; the Spaces UI also shows stopped ones,
+    // because a stopped space is still something you recreate or delete.
+    where: opts.includeStopped
+      ? inArray(machines.workspaceId, ids)
+      : and(inArray(machines.workspaceId, ids), isNull(machines.terminatedAt)),
     orderBy: [desc(machines.createdAt)],
   });
 }

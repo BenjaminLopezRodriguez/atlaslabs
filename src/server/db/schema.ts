@@ -559,7 +559,12 @@ export type MachineStatus =
 export type MachinePort = {
   port: number;
   label?: string;
-  /** Reachable only from inside the VM until port sharing lands. */
+  /**
+   * The driver's tunnel URL for this port. On Modal this is a real public
+   * HTTPS endpoint (`sb.tunnels()`) — unguessable, but unauthenticated, so
+   * treat anything served on it as world-readable. Absent when the tunnel is
+   * not up yet.
+   */
   internalUrl?: string;
 };
 
