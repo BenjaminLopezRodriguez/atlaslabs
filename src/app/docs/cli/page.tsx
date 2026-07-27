@@ -115,6 +115,16 @@ export default function CliDocsPage() {
             >
               Read the install script first
             </a>
+            {/* The agent spec: drop it in ~/.claude/skills/atlas/SKILL.md (or any
+                agent's skills dir) and the agent knows the whole CLI. */}
+            <a
+              href="/agents/skills/atlas_skill.md"
+              download="SKILL.md"
+              className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 underline underline-offset-4 transition-colors"
+            >
+              <Download className="size-3.5" aria-hidden />
+              SKILL.md for coding agents
+            </a>
           </div>
         </div>
 
