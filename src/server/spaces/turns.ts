@@ -22,6 +22,9 @@ const STALE_CLAIM_MS = 10 * 60 * 1000;
 /** A turn that keeps killing its worker is a bug, not bad luck. Stop retrying. */
 const MAX_ATTEMPTS = 3;
 
+/** Floor between streamed-text writes, so a fast model can't flood Postgres. */
+const STREAM_FLUSH_MS = 600;
+
 export async function enqueueSpaceTurn(
   input: {
     threadId: string;
@@ -122,6 +125,25 @@ export async function executeSpaceTurn(
   // surfacing a bare exception with no context.
   let phase: string | null = null;
   const progress: Progress[] = [];
+  // Reply text as the model writes it, shown before the turn finishes.
+  let partial = "";
+  let lastFlush = 0;
+  // Writes are chained rather than fired in parallel: two in-flight updates to
+  // the same row can land out of order and rewind the visible text.
+  let flushing: Promise<void> = Promise.resolve();
+
+  const flushMeta = () => {
+    flushing = flushing.then(async () => {
+      await db
+        .update(messages)
+        .set({
+          meta: { running: true, progress, partial: partial || undefined },
+        })
+        .where(eq(messages.id, turn.messageId))
+        .catch(() => undefined);
+    });
+    return flushing;
+  };
 
   try {
     const machine = await getMachine(turn.userId, turn.machineId);
@@ -152,13 +174,22 @@ export async function executeSpaceTurn(
       onProgress: async (p) => {
         phase = p.detail ?? p.phase;
         progress.push(p);
-        await db
-          .update(messages)
-          .set({ meta: { running: true, progress } })
-          .where(eq(messages.id, turn.messageId))
-          .catch(() => undefined);
+        await flushMeta();
+      },
+      onReplyText: (text) => {
+        partial = text;
+        // ponytail: time-throttled writes, not a push channel. The client polls
+        // at ~1.2s, so flushing faster than this buys nothing; swap for
+        // LISTEN/NOTIFY if the chunkiness ever bothers anyone.
+        if (Date.now() - lastFlush < STREAM_FLUSH_MS) return;
+        lastFlush = Date.now();
+        void flushMeta();
       },
     });
+
+    // A throttled write still in flight would land after the final content and
+    // put the row back into `running`, so let it finish first.
+    await flushing;
 
     await writeReply(
       turn.messageId,
@@ -184,6 +215,9 @@ export async function executeSpaceTurn(
       ? `I could not finish that. Failed while ${lower(phase)}: ${detail}`
       : `I could not finish that: ${detail}`;
 
+    // Same race as the success path, and worse here: a late write would leave
+    // a failed turn showing as still running, forever.
+    await flushing;
     await writeReply(turn.messageId, message, null, db);
     await db
       .update(spaceTurns)

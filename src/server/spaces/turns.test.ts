@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import test, { after } from "node:test";
+import test, { after, afterEach } from "node:test";
 
 process.env.ATLAS_MACHINE_DRIVER = "mock";
 
@@ -20,9 +20,24 @@ import {
   claimNextSpaceTurn,
   enqueueSpaceTurn,
   failExhaustedTurns,
+  spaceTurnTick,
 } from "@/server/spaces/turns";
 
 const owner = `user_turns_${randomUUID().slice(0, 8)}`;
+const realKeys = {
+  deepseek: process.env.DEEPSEEK_API_KEY,
+  anthropic: process.env.ANTHROPIC_API_KEY,
+};
+
+void afterEach(() => {
+  for (const [name, value] of [
+    ["DEEPSEEK_API_KEY", realKeys.deepseek],
+    ["ANTHROPIC_API_KEY", realKeys.anthropic],
+  ] as const) {
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
+  }
+});
 
 void after(async () => {
   const ws = await db.query.workspaces.findMany({
@@ -165,4 +180,130 @@ void test("a turn whose worker died is reclaimed, then failed for good", async (
     undefined,
     "the reply stops rendering as in-flight",
   );
+});
+
+void test("a queued turn is executed by the worker and answers in the thread", async () => {
+  await clearTurns();
+  /*
+   * Both keys, not just one: the gateway picks DeepSeek first and falls back
+   * to Anthropic, so clearing only one still bills a real provider. The stub
+   * is what makes this test free and offline.
+   */
+  delete process.env.DEEPSEEK_API_KEY;
+  delete process.env.ANTHROPIC_API_KEY;
+
+  const { machine, thread, reply } = await seedThread();
+  await enqueueSpaceTurn({
+    threadId: thread.id,
+    messageId: reply.id,
+    machineId: machine.id,
+    userId: owner,
+    userAsk: "say hello",
+  });
+
+  // One worker tick is the whole contract: claim it, run it, answer.
+  assert.equal(await spaceTurnTick(), true);
+  assert.equal(await spaceTurnTick(), false, "the queue drains");
+
+  const turn = await db.query.spaceTurns.findFirst({
+    where: eq(spaceTurns.threadId, thread.id),
+  });
+  assert.equal(turn?.status, "done");
+  assert.ok(turn?.finishedAt, "a finished turn records when");
+
+  const answered = await db.query.messages.findFirst({
+    where: eq(messages.id, reply.id),
+  });
+  assert.notEqual(answered!.content, "", "the empty reply row was filled in");
+  assert.equal(
+    (answered!.meta as { running?: boolean } | null)?.running,
+    undefined,
+    "and no longer renders as in-flight",
+  );
+});
+
+void test("reply text is visible while the turn is still running", async () => {
+  await clearTurns();
+  delete process.env.DEEPSEEK_API_KEY;
+  process.env.ANTHROPIC_API_KEY = "test-key";
+  const realFetch = globalThis.fetch;
+
+  const encoder = new TextEncoder();
+  const frame = (e: unknown) => encoder.encode(`data: ${JSON.stringify(e)}\n\n`);
+  // Emit the text, then hold the stream open long enough for the poll below to
+  // catch the row mid-flight — which is the whole point of streaming.
+  globalThis.fetch = (() =>
+    Promise.resolve(
+      new Response(
+        new ReadableStream({
+          async start(controller) {
+            controller.enqueue(
+              frame({
+                type: "content_block_start",
+                index: 0,
+                content_block: { type: "text" },
+              }),
+            );
+            controller.enqueue(
+              frame({
+                type: "content_block_delta",
+                index: 0,
+                delta: { type: "text_delta", text: "streamed hello" },
+              }),
+            );
+            await new Promise((r) => setTimeout(r, 900));
+            controller.enqueue(
+              frame({ type: "message_delta", delta: { stop_reason: "end_turn" } }),
+            );
+            controller.close();
+          },
+        }),
+        { status: 200 },
+      ),
+    ));
+
+  try {
+    const { machine, thread, reply } = await seedThread();
+    await enqueueSpaceTurn({
+      threadId: thread.id,
+      messageId: reply.id,
+      machineId: machine.id,
+      userId: owner,
+      userAsk: "say hello",
+    });
+
+    const seen: string[] = [];
+    const polling = (async () => {
+      for (let i = 0; i < 20; i++) {
+        await new Promise((r) => setTimeout(r, 100));
+        const row = await db.query.messages.findFirst({
+          where: eq(messages.id, reply.id),
+        });
+        const partial = (row?.meta as { partial?: string } | null)?.partial;
+        if (partial) seen.push(partial);
+      }
+    })();
+
+    await spaceTurnTick();
+    await polling;
+
+    assert.ok(
+      seen.some((s) => s.includes("streamed hello")),
+      `partial text should appear before the turn finishes, saw ${JSON.stringify(seen)}`,
+    );
+
+    const answered = await db.query.messages.findFirst({
+      where: eq(messages.id, reply.id),
+    });
+    assert.match(answered!.content, /streamed hello/);
+    // The race that matters: a throttled write landing after the final one
+    // would leave this row running forever.
+    assert.equal(
+      (answered!.meta as { running?: boolean } | null)?.running,
+      undefined,
+      "no late flush resurrected the in-flight state",
+    );
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });

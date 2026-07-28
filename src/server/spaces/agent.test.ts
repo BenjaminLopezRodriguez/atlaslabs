@@ -49,6 +49,56 @@ async function seedMachine() {
   });
 }
 
+type Block = {
+  type: string;
+  text?: string;
+  id?: string;
+  name?: string;
+  input?: Record<string, unknown>;
+};
+
+/**
+ * Render content blocks as the Anthropic SSE stream that produces them. Tests
+ * still describe a turn as its finished blocks; the gateway only speaks
+ * streaming now, so the translation lives here rather than in every case.
+ */
+function asSse(turn: { content: unknown[]; stop_reason: string }) {
+  const events: unknown[] = [];
+  (turn.content as Block[]).forEach((b, index) => {
+    if (b.type === "text") {
+      events.push({
+        type: "content_block_start",
+        index,
+        content_block: { type: "text" },
+      });
+      events.push({
+        type: "content_block_delta",
+        index,
+        delta: { type: "text_delta", text: b.text ?? "" },
+      });
+    } else if (b.type === "tool_use") {
+      events.push({
+        type: "content_block_start",
+        index,
+        content_block: { type: "tool_use", id: b.id, name: b.name },
+      });
+      events.push({
+        type: "content_block_delta",
+        index,
+        delta: {
+          type: "input_json_delta",
+          partial_json: JSON.stringify(b.input ?? {}),
+        },
+      });
+    }
+  });
+  events.push({
+    type: "message_delta",
+    delta: { stop_reason: turn.stop_reason },
+  });
+  return events.map((e) => `data: ${JSON.stringify(e)}\n\n`).join("");
+}
+
 /** Queue of Anthropic responses, returned one per turn. */
 function stubModel(turns: { content: unknown[]; stop_reason: string }[]) {
   // These assert the Anthropic wire shape, so pin the fallback provider even
@@ -60,7 +110,7 @@ function stubModel(turns: { content: unknown[]; stop_reason: string }[]) {
   globalThis.fetch = ((_url: string, init: { body: string }) => {
     seen.push(JSON.parse(init.body));
     const turn = turns[Math.min(i++, turns.length - 1)]!;
-    return Promise.resolve(new Response(JSON.stringify(turn), { status: 200 }));
+    return Promise.resolve(new Response(asSse(turn), { status: 200 }));
   }) as unknown as typeof fetch;
   return { requests: seen, count: () => i };
 }

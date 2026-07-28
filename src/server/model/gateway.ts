@@ -107,19 +107,35 @@ export type ToolTurnResult = {
 };
 
 /**
- * One turn of an Anthropic tool-use conversation.
+ * Called with each text fragment as the model emits it, so a caller can show
+ * a reply being written instead of a spinner. Never called for tool-call
+ * arguments — those are bookkeeping, not something a reader wants streamed.
+ */
+export type OnDelta = (chunk: string) => void;
+
+export type ToolTurnInput = {
+  system: string;
+  messages: Turn[];
+  tools: ToolDef[];
+  maxTokens?: number;
+  onDelta?: OnDelta;
+};
+
+/**
+ * One turn of a tool-use conversation, streamed.
  *
  * The caller owns the loop: it runs the returned tool calls, appends their
  * results, and calls this again. Keeping the loop outside means the tool
  * implementations — which touch a real VM — stay in one auditable place
  * instead of being hidden behind a generic agent abstraction.
+ *
+ * Both providers stream unconditionally. `onDelta` only decides whether anyone
+ * is listening to the text as it arrives; the assembled result is identical
+ * either way, so there is no second non-streaming path to keep in step.
  */
-export async function generateWithTools(input: {
-  system: string;
-  messages: Turn[];
-  tools: ToolDef[];
-  maxTokens?: number;
-}): Promise<ToolTurnResult> {
+export async function generateWithTools(
+  input: ToolTurnInput,
+): Promise<ToolTurnResult> {
   const chosen = codeProvider();
   if (!chosen) {
     return {
@@ -131,11 +147,70 @@ export async function generateWithTools(input: {
       stub: true,
     };
   }
-  if (chosen.provider === "deepseek") {
-    return deepseekWithTools(chosen.key, chosen.model, input);
-  }
-  const { key, model } = chosen;
+  return chosen.provider === "deepseek"
+    ? deepseekWithTools(chosen.key, chosen.model, input)
+    : anthropicWithTools(chosen.key, chosen.model, input);
+}
 
+/* --------------------------------- SSE ---------------------------------- */
+
+/**
+ * Yields the payload of every `data:` field in an SSE response.
+ *
+ * Frames are split on a blank line rather than per-chunk, because a network
+ * read can land mid-frame — parsing what has arrived so far is how streams
+ * corrupt themselves.
+ */
+async function* sseData(res: Response): AsyncGenerator<string> {
+  const body = res.body;
+  if (!body) throw new Error("model gateway: streaming response had no body");
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
+    let i: number;
+    while ((i = buf.indexOf("\n\n")) !== -1) {
+      const frame = buf.slice(0, i);
+      buf = buf.slice(i + 2);
+      for (const line of frame.split("\n")) {
+        if (line.startsWith("data:")) yield line.slice(5).trim();
+      }
+    }
+  }
+}
+
+/** Accumulates streamed tool-call fragments, keyed by their position. */
+type PartialCall = { id: string; name: string; args: string };
+
+function assembleCalls(partial: Map<number, PartialCall>): ToolCall[] {
+  return [...partial.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([, c]) => ({ id: c.id, name: c.name, input: parseArgs(c.args) }));
+}
+
+/** Anthropic content blocks, rebuilt so the agent loop can echo `raw` back. */
+function toBlocks(text: string, calls: ToolCall[]): Block[] {
+  return [
+    ...(text ? [{ type: "text", text }] : []),
+    ...calls.map((c) => ({
+      type: "tool_use",
+      id: c.id,
+      name: c.name,
+      input: c.input,
+    })),
+  ];
+}
+
+/* ------------------------------- anthropic ------------------------------ */
+
+async function anthropicWithTools(
+  key: string,
+  model: string,
+  input: ToolTurnInput,
+): Promise<ToolTurnResult> {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -152,36 +227,93 @@ export async function generateWithTools(input: {
       system: input.system,
       tools: input.tools,
       messages: input.messages,
+      stream: true,
     }),
   });
   if (!res.ok) {
     throw new Error(`model gateway: ${res.status} ${await res.text()}`);
   }
 
-  const json = (await res.json()) as {
-    content: {
-      type: string;
-      text?: string;
-      id?: string;
-      name?: string;
-      input?: Record<string, unknown>;
-    }[];
-    stop_reason: string;
-  };
+  let text = "";
+  let stopReason = "end_turn";
+  const partial = new Map<number, PartialCall>();
+  // Every content block by index, so `raw` can be replayed in original order.
+  const blocks = new Map<number, Block>();
 
-  return {
-    text: json.content
-      .filter((c) => c.type === "text")
-      .map((c) => c.text ?? "")
-      .join(""),
-    calls: json.content
-      .filter((c) => c.type === "tool_use")
-      .map((c) => ({ id: c.id!, name: c.name!, input: c.input ?? {} })),
-    raw: json.content,
-    stopReason: json.stop_reason,
-    model,
-    stub: false,
-  };
+  for await (const data of sseData(res)) {
+    const event = JSON.parse(data) as {
+      type: string;
+      index?: number;
+      content_block?: { type: string; id?: string; name?: string };
+      delta?: {
+        type?: string;
+        text?: string;
+        thinking?: string;
+        signature?: string;
+        partial_json?: string;
+        stop_reason?: string;
+      };
+      error?: { message?: string };
+    };
+    const at = event.index ?? 0;
+    switch (event.type) {
+      case "content_block_start": {
+        const block = event.content_block;
+        if (!block) break;
+        if (block.type === "tool_use") {
+          partial.set(at, {
+            id: block.id ?? "",
+            name: block.name ?? "",
+            args: "",
+          });
+        }
+        blocks.set(at, { type: block.type, ...(block.type === "text" ? { text: "" } : {}) });
+        break;
+      }
+      case "content_block_delta": {
+        const block = blocks.get(at);
+        if (event.delta?.type === "text_delta" && event.delta.text) {
+          text += event.delta.text;
+          if (block) block.text = (block.text ?? "") + event.delta.text;
+          input.onDelta?.(event.delta.text);
+        } else if (event.delta?.type === "input_json_delta") {
+          const cur = partial.get(at);
+          if (cur) cur.args += event.delta.partial_json ?? "";
+        } else if (event.delta?.type === "thinking_delta") {
+          if (block) block.thinking = (block.thinking ?? "") + (event.delta.thinking ?? "");
+        } else if (event.delta?.type === "signature_delta") {
+          if (block) block.signature = event.delta.signature;
+        }
+        break;
+      }
+      case "message_delta":
+        if (event.delta?.stop_reason) stopReason = event.delta.stop_reason;
+        break;
+      // An error mid-stream arrives as an event, not a bad status code.
+      case "error":
+        throw new Error(
+          `model gateway: ${event.error?.message ?? "stream error"}`,
+        );
+    }
+  }
+
+  const calls = assembleCalls(partial);
+  /*
+   * Rebuild every block in its original order, thinking included. Opus thinks
+   * by default, and Anthropic rejects a tool-use turn whose history dropped
+   * the thinking blocks — so `raw` cannot be reduced to just text and calls.
+   */
+  const raw = [...blocks.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([index, b]) => {
+      if (b.type !== "tool_use") return b;
+      const call = partial.get(index);
+      return call
+        ? { type: "tool_use", id: call.id, name: call.name, input: parseArgs(call.args) }
+        : b;
+    });
+
+  return { text, calls, raw, stopReason, model, stub: false };
 }
 
 /* ------------------------------- deepseek ------------------------------- */
@@ -218,6 +350,9 @@ type Block = {
   tool_use_id?: string;
   content?: string;
   is_error?: boolean;
+  /** Extended thinking, which must survive a round trip through history. */
+  thinking?: string;
+  signature?: string;
 };
 
 function toOpenAiMessages(system: string, turns: Turn[]): OpenAiMessage[] {
@@ -263,12 +398,7 @@ function toOpenAiMessages(system: string, turns: Turn[]): OpenAiMessage[] {
 async function deepseekWithTools(
   key: string,
   model: string,
-  input: {
-    system: string;
-    messages: Turn[];
-    tools: ToolDef[];
-    maxTokens?: number;
-  },
+  input: ToolTurnInput,
 ): Promise<ToolTurnResult> {
   const res = await fetch(DEEPSEEK_URL, {
     method: "POST",
@@ -289,46 +419,57 @@ async function deepseekWithTools(
         },
       })),
       tool_choice: "auto",
+      stream: true,
     }),
   });
   if (!res.ok) {
     throw new Error(`model gateway: ${res.status} ${await res.text()}`);
   }
 
-  const json = (await res.json()) as {
-    choices: {
-      message: { content: string | null; tool_calls?: OpenAiToolCall[] };
-      finish_reason: string;
-    }[];
-  };
-  const choice = json.choices[0];
-  if (!choice) throw new Error("model gateway: deepseek returned no choices");
-  const text = choice.message.content ?? "";
-  const calls: ToolCall[] = (choice.message.tool_calls ?? []).map((c) => ({
-    id: c.id,
-    name: c.function.name,
-    // Arguments arrive as a JSON string; a malformed one is the model's fault,
-    // and an empty object lets the tool reject it with a real message instead
-    // of blowing up the whole turn.
-    input: parseArgs(c.function.arguments),
-  }));
+  let text = "";
+  let finish = "stop";
+  const partial = new Map<number, PartialCall>();
 
-  // Rebuilt as Anthropic blocks so the caller can echo `raw` back unchanged.
-  const raw: Block[] = [
-    ...(text ? [{ type: "text", text }] : []),
-    ...calls.map((c) => ({
-      type: "tool_use",
-      id: c.id,
-      name: c.name,
-      input: c.input,
-    })),
-  ];
+  for await (const data of sseData(res)) {
+    if (data === "[DONE]") break;
+    const chunk = JSON.parse(data) as {
+      choices?: {
+        delta?: {
+          content?: string | null;
+          tool_calls?: {
+            index: number;
+            id?: string;
+            function?: { name?: string; arguments?: string };
+          }[];
+        };
+        finish_reason?: string | null;
+      }[];
+    };
+    const choice = chunk.choices?.[0];
+    if (!choice) continue;
+    const delta = choice.delta;
+    if (delta?.content) {
+      text += delta.content;
+      input.onDelta?.(delta.content);
+    }
+    // Tool calls arrive as fragments: the name in one chunk, the arguments
+    // JSON split across many. `index` is what ties the pieces together.
+    for (const tc of delta?.tool_calls ?? []) {
+      const cur = partial.get(tc.index) ?? { id: "", name: "", args: "" };
+      if (tc.id) cur.id = tc.id;
+      if (tc.function?.name) cur.name = tc.function.name;
+      if (tc.function?.arguments) cur.args += tc.function.arguments;
+      partial.set(tc.index, cur);
+    }
+    if (choice.finish_reason) finish = choice.finish_reason;
+  }
 
+  const calls = assembleCalls(partial);
   return {
     text,
     calls,
-    raw,
-    stopReason: choice.finish_reason === "tool_calls" ? "tool_use" : "end_turn",
+    raw: toBlocks(text, calls),
+    stopReason: finish === "tool_calls" ? "tool_use" : "end_turn",
     model,
     stub: false,
   };

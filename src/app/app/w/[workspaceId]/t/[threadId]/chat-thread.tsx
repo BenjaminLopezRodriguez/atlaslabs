@@ -54,12 +54,22 @@ function formatTime(value: Date | string | null | undefined) {
   }).format(d);
 }
 
-type Progress = { phase: string; detail?: string };
+/** Mirrors `Progress` in `server/spaces/agent` — it arrives as message meta. */
+type Progress = { phase: string; detail?: string; elapsedMs?: number };
 
 /** A reply row that exists but has not finished; meta carries its progress. */
 function runningProgress(meta: unknown): Progress[] | null {
   const m = meta as { running?: boolean; progress?: Progress[] } | null;
   return m?.running ? (m.progress ?? []) : null;
+}
+
+/**
+ * Reply text written so far by a turn still in flight. The worker flushes this
+ * to the row as the model streams, so it arrives on the same poll as progress.
+ */
+function runningPartial(meta: unknown): string {
+  const m = meta as { running?: boolean; partial?: string } | null;
+  return m?.running ? (m.partial ?? "") : "";
 }
 
 /** Empty streaming reply — caret, then throb + Thinking… after 200ms. */
@@ -93,6 +103,16 @@ function AgentPendingReply({ label = "thinking..." }: { label?: string }) {
  * What the turn has done so far. The last entry is still in flight, so it
  * throbs; everything above it is settled and reads as history.
  */
+/** Gap between a phase's stamp and the next one, as "12.7s". */
+function phaseDuration(steps: Progress[], index: number): string | null {
+  const start = steps[index]?.elapsedMs;
+  const end = steps[index + 1]?.elapsedMs;
+  if (start == null || end == null) return null;
+  const ms = end - start;
+  // Sub-second phases are noise next to a stage that takes thirteen.
+  return ms < 1000 ? null : `${(ms / 1000).toFixed(1)}s`;
+}
+
 function AgentProgress({
   steps,
   startedAt,
@@ -112,8 +132,18 @@ function AgentProgress({
   return (
     <div className="mb-2 flex flex-col gap-1" aria-live="polite">
       {done.map((s, i) => (
-        <span key={`${s.phase}-${i}`} className="text-muted-foreground text-xs">
+        <span
+          key={`${s.phase}-${i}`}
+          className="text-muted-foreground flex items-baseline gap-1.5 text-xs"
+        >
           {s.detail ?? s.phase}
+          {/* How long that phase took — a turn runs for a minute, and "which
+              part was slow" is the only question worth asking about it. */}
+          {phaseDuration(steps, i) ? (
+            <span className="text-muted-foreground/60 font-mono text-[10px]">
+              {phaseDuration(steps, i)}
+            </span>
+          ) : null}
         </span>
       ))}
       <AgentPendingReply
@@ -455,7 +485,9 @@ export function ChatThread({
                           startedAt={m.createdAt}
                         />
                       ) : null}
-                      <AgentMarkdown text={m.content} />
+                      <AgentMarkdown
+                        text={m.content || runningPartial(m.meta)}
+                      />
                       <AgentPlan
                         steps={(m.meta as { plan?: PlanStep[] })?.plan ?? []}
                       />

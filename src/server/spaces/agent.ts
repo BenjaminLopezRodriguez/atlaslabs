@@ -44,6 +44,15 @@ export type AgentStep = {
 export type Progress = {
   phase: string;
   detail?: string;
+  /**
+   * Milliseconds from the start of the turn to when this phase began.
+   *
+   * A stamp rather than a duration: the phase in flight has not finished, so
+   * its cost is `now - elapsedMs`, and every finished phase's cost is the gap
+   * to the next stamp. One number, no bookkeeping, and the turn's timeline
+   * survives in the message row for whoever asks why it took a minute.
+   */
+  elapsedMs?: number;
 };
 
 export type OnProgress = (p: Progress) => void | Promise<void>;
@@ -428,6 +437,13 @@ export async function runSpaceAgent(input: {
   context?: string;
   /** Called after every tool call so a caller can surface live progress. */
   onProgress?: OnProgress;
+  /**
+   * Called as the model writes, with the whole reply text so far — a
+   * replacement, not a fragment. The loop keeps only the final step's prose
+   * (see `text` below), so emitting cumulative text per step is what keeps a
+   * streamed reply identical to the one that eventually gets saved.
+   */
+  onReplyText?: (text: string) => void;
 }): Promise<AgentResult> {
   const { machine, prompt, userId } = input;
 
@@ -458,6 +474,9 @@ export async function runSpaceAgent(input: {
   let text = "";
 
   for (let step = 0; step < MAX_STEPS; step++) {
+    // Reset per step: this step's prose replaces the last step's, matching how
+    // `text` below is assigned rather than appended.
+    let stepText = "";
     const turn = await generateWithTools({
       system: systemPrompt(machine, index?.files ?? null, {
         runKind: input.runKind,
@@ -465,6 +484,12 @@ export async function runSpaceAgent(input: {
       }),
       messages,
       tools: TOOLS,
+      onDelta: input.onReplyText
+        ? (chunk) => {
+            stepText += chunk;
+            input.onReplyText!(stepText);
+          }
+        : undefined,
     });
     if (turn.text) text = turn.text;
 

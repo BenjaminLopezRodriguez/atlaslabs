@@ -4,6 +4,7 @@ import {
   runSpaceAgent,
   type AgentResult,
   type OnProgress,
+  type Progress,
 } from "@/server/spaces/agent";
 
 import { buildGraph, sliceGraph } from "./code-graph";
@@ -78,9 +79,11 @@ export async function runBuildTurn(input: {
   db?: Db;
   /** Called at every stage boundary so a caller can surface live progress. */
   onProgress?: OnProgress;
+  /** Called with the reply text so far, as the agent writes it. */
+  onReplyText?: (text: string) => void;
 }): Promise<BuildTurn> {
   const db = input.db ?? database;
-  const progress = input.onProgress ?? (() => undefined);
+  const progress = stampElapsed(input.onProgress);
 
   // —— Materialize ——
   await progress({ phase: "reading", detail: "Reading the space" });
@@ -183,7 +186,8 @@ export async function runBuildTurn(input: {
   await progress({ phase: "building", detail: "Starting work" });
   const agent = await runSpaceAgent({
     machine: input.machine,
-    onProgress: input.onProgress,
+    onProgress: progress,
+    onReplyText: input.onReplyText,
     threadId: input.threadId,
     prompt: input.userAsk,
     history: input.history,
@@ -227,4 +231,19 @@ function graphSlice(
   } catch {
     return "";
   }
+}
+
+/**
+ * Wrap a progress callback so every event carries its offset from the start of
+ * the turn.
+ *
+ * The clock starts when the turn does, and the agent's per-tool events go
+ * through the same wrapper — two clocks would make the stage timings and the
+ * tool timings impossible to line up.
+ */
+function stampElapsed(onProgress?: OnProgress): (p: Progress) => Promise<void> {
+  const startedAt = Date.now();
+  return async (p: Progress) => {
+    await onProgress?.({ ...p, elapsedMs: Date.now() - startedAt });
+  };
 }
