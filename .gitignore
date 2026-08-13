@@ -52,3 +52,11 @@ packages/*/dist/
 .claude
 .env*
 !.env.example
+
+# local merge scratch
+temp/
+
+.env.vercel*
+.env*.bak
+
+.pnpm-store/

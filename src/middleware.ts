@@ -10,6 +10,7 @@ export default authkitMiddleware({
     enabled: true,
     unauthenticatedPaths: [
       "/",
+      "/about",
       "/sign-in",
       "/sign-up",
       "/auth/:path*",
@@ -29,6 +30,7 @@ export default authkitMiddleware({
 export const config = {
   matcher: [
     "/",
+    "/about",
     "/sign-in",
     "/sign-up",
     "/auth/:path*",

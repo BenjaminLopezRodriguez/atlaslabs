@@ -1,7 +1,7 @@
 import "@/styles/globals.css";
 
 import { type Metadata } from "next";
-import { Geist, Geist_Mono, Libre_Baskerville } from "next/font/google";
+import { Geist, Geist_Mono, Libre_Baskerville, Newsreader } from "next/font/google";
 
 import { AuthKitProvider } from "@workos-inc/authkit-nextjs/components";
 
@@ -20,18 +20,27 @@ const geistMono = Geist_Mono({
   display: "swap",
 });
 
-/** Display serif for headlines — https://fonts.google.com/specimen/Libre+Baskerville */
+const newsreader = Newsreader({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  style: ["normal", "italic"],
+  variable: "--font-newsreader",
+  display: "swap",
+});
+
+/** Logo / product-name stamp — Libre Baskerville */
 const libreBaskerville = Libre_Baskerville({
   subsets: ["latin"],
   weight: ["400", "700"],
-  variable: "--font-heading",
+  style: ["normal", "italic"],
+  variable: "--font-logo",
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Atlas Labs",
+  title: "Atlas Labs — Specialist fine-tuned models",
   description:
-    "Atlas is an agentic coding workspace — a cloud machine you and your agents build in together, from the browser or the CLI.",
+    "Atlas Labs builds specialist fine-tuned LLMs with experts. Atlas Life brings that stack to kids on atlaslabs.life. Software, Remote, and hardware extend the same core.",
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 
@@ -44,12 +53,13 @@ export default function RootLayout({
       className={cn(
         geistSans.variable,
         geistMono.variable,
+        newsreader.variable,
         libreBaskerville.variable,
         geistSans.className,
         "antialiased",
       )}
     >
-      <body>
+      <body className="min-h-screen font-sans">
         <AuthKitProvider>
           <TRPCReactProvider>{children}</TRPCReactProvider>
         </AuthKitProvider>
